@@ -1,0 +1,2423 @@
+# Valibot
+
+The modular and type safe schema library for validating structural data.
+
+## Get started
+
+### Introduction
+
+Hello, I am Valibot and I would like to help you validate data easily using a schema. No matter if it is incoming data on a server, a form or even configuration files. I have no dependencies and can run in any JavaScript environment.
+
+> I highly recommend you read the [announcement post](https://www.builder.io/blog/introducing-valibot), and if you are a nerd like me, the [bachelor's thesis](/thesis.pdf) I am based on.
+
+#### Highlights
+
+- Fully type safe with static type inference
+- Small bundle size starting at less than 700 bytes
+- Validate everything from strings to complex objects
+- Open source and fully tested with 100 % coverage
+- Many transformation and validation actions included
+- Well structured source code without dependencies
+- Minimal, readable and well thought out API
+
+#### Example
+
+First you create a schema that describes a structured data set. A schema can be compared to a type definition in TypeScript. The big difference is that TypeScript types are "not executed" and are more or less a DX feature. A schema on the other hand, apart from the inferred type definition, can also be executed at runtime to guarantee type safety of unknown data.
+
+{/* prettier-ignore */}
+```ts
+import * as v from 'valibot'; // 1.31 kB
+
+// Create login schema with email and password
+const LoginSchema = v.object({
+  email: v.pipe(v.string(), v.email()),
+  password: v.pipe(v.string(), v.minLength(8)),
+});
+
+// Infer output TypeScript type of login schema as
+// { email: string; password: string }
+type LoginData = v.InferOutput<typeof LoginSchema>;
+
+// Throws error for email and password
+const output1 = v.parse(LoginSchema, { email: '', password: '' });
+
+// Returns data as { email: string; password: string }
+const output2 = v.parse(LoginSchema, {
+  email: 'jane@example.com',
+  password: '12345678',
+});
+```
+
+Apart from <Link href="/api/parse/">`parse`</Link> I also offer a non-exception-based API with <Link href="/api/safeParse/">`safeParse`</Link> and a type guard function with <Link href="/api/is/">`is`</Link>. You can read more about it <Link href="/guides/parse-data/">here</Link>.
+
+#### Comparison
+
+Instead of relying on a few large functions with many methods, my API design and source code is based on many small and independent functions, each with just a single task. This modular design has several advantages.
+
+For example, this allows a bundler to use the import statements to remove code that is not needed. This way, only the code that is actually used gets into your production build. This can reduce the bundle size by up to 95 % compared to [Zod](https://zod.dev/).
+
+In addition, it allows you to easily extend my functionality with external code and makes my source code more robust and secure because the functionality of the individual functions can be tested much more easily through unit tests.
+
+#### Credits
+
+My friend [Fabian](https://github.com/fabian-hiller) created me as part of his bachelor thesis at [Stuttgart Media University](https://www.hdm-stuttgart.de/en/), supervised by Walter Kriha, [Miško Hevery](https://github.com/mhevery) and [Ryan Carniato](https://github.com/ryansolid). My role models also include [Colin McDonnell](https://github.com/colinhacks), who had a big influence on my API design with [Zod](https://zod.dev/).
+
+#### Feedback
+
+Find a bug or have an idea how to improve my code? Please fill out an [issue](https://github.com/open-circle/valibot/issues/new). Together we can make the library even better!
+
+#### License
+
+I am completely free and licensed under the [MIT license](https://github.com/open-circle/valibot/blob/main/LICENSE.md). But if you like, you can feed me with a star on [GitHub](https://github.com/open-circle/valibot).
+
+### Installation
+
+Valibot is currently available for Node, Bun and Deno. Below you will learn how to add the library to your project.
+
+#### General
+
+Except for this guide, the rest of this documentation assumes that you are using npm for the import statements in the code examples.
+
+It should make no difference whether you use individual imports or a wildcard import. Tree shaking and code splitting should work in both cases.
+
+If you are using TypeScript, we recommend that you enable strict mode in your `tsconfig.json` so that all types are calculated correctly.
+
+> The minimum required TypeScript version is v5.0.2.
+
+```js
+{
+  "compilerOptions": {
+    "strict": true,
+    // ...
+  }
+}
+```
+
+#### From npm
+
+For Node and Bun, you can add the library to your project with a single command using your favorite package manager.
+
+```bash
+npm install valibot     # npm
+yarn add valibot        # yarn
+pnpm add valibot        # pnpm
+bun add valibot         # bun
+```
+
+Then you can import it into any JavaScript or TypeScript file.
+
+```ts
+// With individual imports
+import { … } from 'valibot';
+
+// With a wildcard import
+import * as v from 'valibot';
+```
+
+#### From JSR
+
+For Node, Deno and Bun, you can add the library to your project with a single command using your favorite package manager.
+
+```bash
+deno add jsr:@valibot/valibot      # deno
+npx jsr add @valibot/valibot       # npm
+yarn dlx jsr add @valibot/valibot  # yarn
+pnpm dlx jsr add @valibot/valibot  # pnpm
+bunx jsr add @valibot/valibot      # bun
+```
+
+Then you can import it into any JavaScript or TypeScript file.
+
+```ts
+// With individual imports
+import { … } from '@valibot/valibot';
+
+// With a wildcard import
+import * as v from '@valibot/valibot';
+```
+
+In Deno, you can also directly reference me using `jsr:` specifiers.
+
+```ts
+// With individual imports
+import { … } from 'jsr:@valibot/valibot';
+
+// With a wildcard import
+import * as v from 'jsr:@valibot/valibot';
+```
+
+#### From Deno
+
+With Deno, you can reference the library directly through our deno.land/x URL.
+
+```ts
+// With individual imports
+import { … } from 'https://deno.land/x/valibot/mod.ts';
+
+// With a wildcard import
+import * as v from 'https://deno.land/x/valibot/mod.ts';
+```
+
+### Quick start
+
+A Valibot schema can be compared to a type definition in TypeScript. The big difference is that TypeScript types are "not executed" and are more or less a DX feature. A schema on the other hand, apart from the inferred type definition, can also be executed at runtime to truly guarantee type safety of unknown data.
+
+#### Basic concept
+
+Similar to how types can be defined in TypeScript, Valibot allows you to define a schema with various small functions. This applies to primitive values like strings as well as more complex data sets like objects.
+
+```ts
+import * as v from 'valibot';
+
+// TypeScript
+type LoginData = {
+  email: string;
+  password: string;
+};
+
+// Valibot
+const LoginSchema = v.object({
+  email: v.string(),
+  password: v.string(),
+});
+```
+
+#### Pipelines
+
+In addition, pipelines enable you to perform more detailed validations and transformations with the <Link href="/api/pipe/">`pipe`</Link> method. Thus, for example, it can be ensured that a string is an email that ends with a certain domain.
+
+```ts
+import * as v from 'valibot';
+
+const EmailSchema = v.pipe(v.string(), v.email(), v.endsWith('@example.com'));
+```
+
+A pipeline must always start with a schema, followed by up to 19 validation or transformation actions. They are executed in sequence, and the result of the previous action is passed to the next. More details about pipelines can be found in <Link href="/guides/pipelines/">this guide</Link>.
+
+#### Error messages
+
+If an issue is detected during validation, the library emits a specific issue object that includes various details and an error message. This error message can be overridden via the first optional argument of a schema or validation action.
+
+```ts
+import * as v from 'valibot';
+
+const LoginSchema = v.object({
+  email: v.pipe(
+    v.string('Your email must be a string.'),
+    v.nonEmpty('Please enter your email.'),
+    v.email('The email address is badly formatted.')
+  ),
+  password: v.pipe(
+    v.string('Your password must be a string.'),
+    v.nonEmpty('Please enter your password.'),
+    v.minLength(8, 'Your password must have 8 characters or more.')
+  ),
+});
+```
+
+Custom error messages allow you to improve the usability of your software by providing specific troubleshooting information and returning error messages in a language other than English. See the <Link href="/guides/internationalization/">i18n guide</Link> for more information.
+
+#### Usage
+
+Finally, you can use your schema to infer its input and output types and to parse unknown data. This way, your schema is the single source of truth. This concept simplifies your development process and makes your code more robust in the long run.
+
+```ts
+import * as v from 'valibot';
+
+const LoginSchema = v.object({…});
+
+type LoginData = v.InferOutput<typeof LoginSchema>;
+
+function getLoginData(data: unknown): LoginData {
+  return v.parse(LoginSchema, data);
+}
+```
+
+### Use cases
+
+Next, we would like to point out some use cases for which Valibot is particularly well suited. We welcome [ideas](https://github.com/open-circle/valibot/issues/new) for other use cases that we may not have thought of yet.
+
+#### Server requests
+
+Since most API endpoints can be reached via the Internet, basically anyone can send a request and transmit data. It is therefore important to apply zero trust security and to check request data thoroughly before processing it further.
+
+This works particularly well with a schema, compared to if/else conditions, as even complex structures can be easily mapped. In addition, the library automatically type the parsed data according to the schema, which improves type safety and thus makes your code more secure.
+
+#### Form validation
+
+A schema can also be used for form validation. Due to Valibot's small bundle size and the possibility to individualize the error messages, the library is particularly well suited for this. Also, fullstack frameworks like Next.js, Remix, and Nuxt allow the same schema to be used for validation in the browser as well as on the server, which reduces your code to the minimum.
+
+[Modular Forms](https://modularforms.dev/react/guides/validate-your-fields#schema-validation), for example, offers validation based on a schema at form and field level. In addition, the form can be made type-safe using the schema, which also enables autocompletion during development. In combination with the right framework, a fully type-safe and progressively enhanced form can be created with few lines of code and a great experience for developers and end-users.
+
+#### Browser state
+
+The browser state, which is stored using cookies, search parameters or the local storage, can be accidentally or intentionally manipulated by the user. To ensure the functionality of an application, it can help to validate this data before processing. Valibot can be used for this, which also improves type safety.
+
+#### Config files
+
+Library authors can also make use of Valibot, for example, to match configuration files with a schema and, in the event of an error, provide clear indications of the cause and how to fix the problem. The same applies to environment variables to quickly detect configuration errors.
+
+#### Schema builder
+
+Our schemas are plain JavaScript objects with a well-defined and fully type-safe structure. This makes Valibot a great choice for defining data structures that can be further processed by third-party code. For example, it is possible to build an ORM with custom metadata actions on top of Valibot to generate database schemas. Another example is our official `toJsonSchema` function, which uses Valibot's object API to output a JSON Schema that can be used for documentation purposes or to generate structured output with LLMs.
+
+#### Data migration
+
+Valibot can also be used to migrate data from one form to another in a type-safe way. The advantage of a schema library like Valibot is that transformations can be defined for individual properties instead of for the entire dataset. This can make data migrations more readable and maintainable. In addition, the schema can be used to validate the data before the migration, which increases the reliability of the migration process.
+
+### Comparison
+
+Even though Valibot's API resembles other solutions at first glance, the implementation and structure of the source code is very different. In the following, we would like to highlight the differences that can be beneficial for both you and your users.
+
+#### Modular design
+
+Instead of relying on a few large functions with many methods, Valibot's API design and source code is based on many small and independent functions, each with just a single task. This modular design has several advantages.
+
+On one hand, the functionality of Valibot can be easily extended with external code. On the other, it makes the source code more robust and secure because the functionality of the individual functions as well as special edge cases can be tested much easier through unit tests.
+
+However, perhaps the biggest advantage is that a bundler can use the static import statements to remove any code that is not needed. Thus, only the code that is actually used ends up in the production build. This allows us to extend the functionality of the library with additional functions without increasing the bundle size for all users.
+
+This can make a big difference, especially for client-side validation, as it reduces the bundle size and, depending on the framework, speeds up the startup time.
+
+{/* prettier-ignore */}
+```ts
+import * as v from 'valibot'; // 1.37 kB
+
+const LoginSchema = v.object({
+  email: v.pipe(
+    v.string(),
+    v.nonEmpty('Please enter your email.'),
+    v.email('The email address is badly formatted.')
+  ),
+  password: v.pipe(
+    v.string(),
+    v.nonEmpty('Please enter your password.'),
+    v.minLength(8, 'Your password must have 8 characters or more.')
+  ),
+});
+```
+
+##### Comparison with Zod
+
+For example, to validate a simple login form, [Zod](https://zod.dev/) requires [13.5 kB](https://bundlejs.com/?q=zod&treeshake=%5B%7B+object%2Cstring+%7D%5D) whereas Valibot require only [1.37 kB](https://bundlejs.com/?q=valibot&treeshake=%5B%7B+email%2CminLength%2CnonEmpty%2Cobject%2Cstring%2Cpipe+%7D%5D). That's a 90 % reduction in bundle size. This is due to the fact that Zod's functions have several methods with additional functionalities, that cannot be easily removed by current bundlers when they are not executed in your source code.
+
+{/* prettier-ignore */}
+```ts
+import { object, string } from 'zod'; // 13.5 kB
+
+const LoginSchema = object({
+  email: string()
+    .min(1, 'Please enter your email.')
+    .email('The email address is badly formatted.'),
+  password: string()
+    .min(1, 'Please enter your password.')
+    .min(8, 'Your password must have 8 characters or more.'),
+});
+```
+
+> You can migrate from Zod to Valibot using our [migration guide](/guides/migrate-from-zod/). It provides a codemod and a detailed overview of the differences between the two libraries.
+
+#### Performance
+
+With a schema library, a distinction must be made between startup performance and runtime performance. Startup performance describes the time required to load and initialize the library. This benchmark is mainly influenced by the bundle size and the amount of work required to create a schema. Runtime performance describes the time required to validate unknown data using a schema.
+
+Since Valibot's implementation is optimized to minimize the bundle size and the effort of initialization, there is hardly any library that performs better in a [TTI](https://web.dev/articles/tti) benchmark. In terms of runtime performance, Valibot is in the midfield. Roughly speaking, the library is about twice as fast as [Zod](https://zod.dev/), but much slower than [Typia](https://typia.io/) and [TypeBox](https://github.com/sinclairzx81/typebox), because we don't yet use a compiler that can generate highly optimized runtime code, and our implementation doesn't allow the use of the [`Function`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function) constructor.
+
+> Further details on performance can be found in the [bachelor's thesis](/thesis.pdf) Valibot is based on.
+
+### Ecosystem
+
+This page is for you if you are looking for frameworks or libraries that support Valibot.
+
+> Use the button at the bottom left of this page to add your project to this ecosystem page. Please make sure to add your project to an appropriate existing category in alphabetical order or create a new category if necessary.
+
+#### Frameworks
+
+- [NestJS](https://docs.nestjs.com): A progressive Node.js framework for building efficient, reliable and scalable server-side applications
+- [Qwik](https://qwik.dev): A web framework which helps you build instantly-interactive web apps at any scale without effort.
+
+#### API libraries
+
+- [Drizzle ORM](https://orm.drizzle.team/): TypeScript ORM that feels like writing SQL
+- [GQLoom](https://gqloom.dev/): Weave GraphQL schema and resolvers using Valibot
+- [Hono](https://hono.dev/): Ultrafast web framework for the Edges
+- [next-safe-action](https://next-safe-action.dev) Type safe and validated Server Actions for Next.js
+- [oRPC](https://orpc.unnoq.com/): Typesafe APIs Made Simple
+- [piying-orm](https://github.com/piying-org/piying-orm): ORM for Valibot; Supports TypeORM, with more to come.
+- [tRPC](https://trpc.io/): Move Fast and Break Nothing. End-to-end typesafe APIs made easy
+- [upfetch](https://github.com/L-Blondy/up-fetch): Advanced fetch client builder
+
+#### AI libraries
+
+- [AI SDK](https://sdk.vercel.ai/): Build AI-powered applications with React, Svelte, Vue, and Solid
+
+#### Form libraries
+
+- [@rvf/valibot](https://github.com/airjp73/rvf/tree/main/packages/valibot): Valibot schema parser for [RVF](https://rvf-js.io/)
+- [conform](https://conform.guide/): A type-safe form validation library utilizing web fundamentals to progressively enhance HTML Forms with full support for server frameworks like Remix and Next.js.
+- [mantine-form-valibot-resolver](https://github.com/Songkeys/mantine-form-valibot-resolver): Valibot schema resolver for [@mantine/form](https://mantine.dev/form/use-form/)
+- [maz-ui](https://maz-ui.com/composables/use-form-validator): Vue3 flexible and typed composable to manage forms simply with multiple modes and advanced features
+- [Modular Forms](https://modularforms.dev/): Modular and type-safe form library for SolidJS, Qwik, Preact and React
+- [piying-view](https://github.com/piying-org/piying-view): Frontend Form Solution; Supports Angular, Vue, React, with more to come.
+- [React Hook Form](https://react-hook-form.com/): React Hooks for form state management and validation
+- [regle](https://github.com/victorgarciaesgi/regle): Headless form validation library for Vue.js
+- [Superforms](https://superforms.rocks): A comprehensive SvelteKit form library for server and client validation
+- [svelte-jsonschema-form](https://x0k.dev/svelte-jsonschema-form/validators/valibot/): Svelte 5 library for creating forms based on JSON schema
+- [TanStack Form](https://tanstack.com/form): Powerful and type-safe form state management for the web
+- [VeeValidate](https://vee-validate.logaretm.com/v4/): Painless Vue.js forms
+- [vue-valibot-form](https://github.com/IlyaSemenov/vue-valibot-form): Minimalistic Vue3 composable for handling form submit
+
+#### Component libraries
+
+- [Nuxt UI](https://ui.nuxt.com/): Fully styled and customizable components for Nuxt
+
+#### Valibot to X
+
+- [@gcornut/cli-valibot-to-json-schema](https://github.com/gcornut/cli-valibot-to-json-schema): CLI wrapper for @valibot/to-json-schema
+- [@valibot/to-json-schema](https://github.com/open-circle/valibot/tree/main/packages/to-json-schema): The official JSON schema converter for Valibot
+- [Hono OpenAPI](https://github.com/rhinobase/hono-openapi): A plugin for Hono to generate OpenAPI Swagger documentation
+- [TypeMap](https://github.com/sinclairzx81/typemap/): Uniform Syntax, Mapping and Compiler Library for TypeBox, Valibot and Zod
+- [TypeSchema](https://typeschema.com/): Universal adapter for schema validation
+- [Valibot-Fast-Check](https://github.com/Eronmmer/valibot-fast-check): A library to generate [fast-check](https://fast-check.dev) arbitraries from Valibot schemas for property-based testing
+- [valibot-serialize](https://github.com/gadicc/valibot-serialize): Serialize a schema to JSON and back again, or to (tree-shaking safe) static code
+
+#### X to Valibot
+
+- [@hey-api/openapi-ts](https://heyapi.dev/openapi-ts/plugins/valibot): The OpenAPI to TypeScript codegen. Generate clients, SDKs, validators, and more.
+- [@traversable/valibot](https://github.com/traversable/schema/tree/main/packages/valibot): Build your own "Valibot to X" library, or pick one of 10+ off-the-shelf transformers
+- [DRZL](https://github.com/use-drzl/drzl): Analyze Drizzle ORM schema(s) and auto-generate Valibot validators, typed services, and strongly typed routers (oRPC/tRPC/etc) via a modular pipeline.
+- [graphql-codegen-typescript-validation-schema](https://github.com/Code-Hex/graphql-codegen-typescript-validation-schema): GraphQL Code Generator plugin to generate form validation schema from your GraphQL schema.
+- [Prisma Valibot Generator](https://github.com/omar-dulaimi/prisma-valibot-generator): Generate Valibot validators from your Prisma schema so types and runtime stay in sync.
+- [TypeBox-Codegen](https://sinclairzx81.github.io/typebox-workbench/): Code generation for schema libraries
+- [TypeMap](https://github.com/sinclairzx81/typemap/): Uniform Syntax, Mapping and Compiler Library for TypeBox, Valibot and Zod
+- [valibot-serialize](https://github.com/gadicc/valibot-serialize): From serialized JSON back to a schema instance or the (tree-shaking safe) code to create that instance
+
+#### Utilities
+
+- [@camflan/valibot-openapi-generator](https://github.com/camflan/valibot-openapi-generator): Functions to help build OpenAPI documentation using Valibot schemas
+- [@nest-lab/typeschema](https://github.com/jmcdo29/nest-lab/tree/main/packages/typeschema): A ValidationPipe that handles many schema validators in a class-based fashion for NestJS's input validation
+- [@traversable/valibot-test](https://github.com/traversable/schema/tree/main/packages/valibot-test): Random Valibot schema generator built for fuzz testing, includes generators for both valid and invalid data
+- [@valibot/i18n](https://github.com/open-circle/valibot/tree/main/packages/i18n): The official i18n translations for Valibot
+- [fastify-type-provider-valibot](https://github.com/qlaffont/fastify-type-provider-valibot): Fastify Type Provider with Valibot
+- [valibot-env](https://y-hiraoka.github.io/valibot-env): Environment variables validator with Valibot
+- [valibotx](https://github.com/IlyaSemenov/valibotx): A collection of extensions and shortcuts to core Valibot functions
+- [valiload](https://github.com/JuerGenie/valiload): A simple and lightweight library for overloading functions in TypeScript
+- [valimock](https://github.com/saeris/valimock): Generate mock data using your Valibot schemas using [Faker](https://github.com/faker-js/faker)
+- [valipass](https://github.com/Saeris/valipass): Collection of password validation actions for Valibot schemas
+
+### LLMs.txt
+
+If you are using AI to generate Valibot schemas, you can use our LLMs.txt files to help the AI better understand the library.
+
+#### What is LLMs.txt?
+
+An [LLMs.txt](https://llmstxt.org/) file is a plain text file that provides instructions or metadata for large language models (LLMs). It often specifies how the LLMs should process or interact with content. It is similar to a robots.txt file, but is tailored for AI models.
+
+#### Available routes
+
+We provide several LLMs.txt routes. Use the route that works best with your AI tool.
+
+- [`llms.txt`](/llms.txt) contains a table of contents with links to Markdown files
+- [`llms-full.txt`](/llms-full.txt) contains the Markdown content of the entire docs
+- [`llms-guides.txt`](/llms-guides.txt) contains the Markdown content of the guides
+- [`llms-api.txt`](/llms-api.txt) contains the Markdown content of the API reference
+
+#### How to use it
+
+To help you get started, here are some examples of how the LLMs.txt files can be used with various AI tools.
+
+> Please help us by adding more examples of other AI tools. If you use a tool that supports LLMs.txt files, please [open a pull request](https://github.com/open-circle/valibot/pulls) to add it to this page.
+
+##### Cursor
+
+You can add a custom documentation as context in Cursor using the `@Docs` feature. Read more about it [here](https://docs.cursor.com/context/@-symbols/@-docs).
+
+## Main concepts
+
+### Mental model
+
+Valibot's mental model is mainly divided between **schemas**, **methods**, and **actions**. Since each functionality is imported as its own function, it is crucial to understand this concept as it makes working with the modular API design much easier.
+
+<MentalModelDark
+  alt="Code example with a schema, method and actions"
+  class="hidden dark:block"
+/>
+<MentalModelLight
+  alt="Code example with a schema, method and actions"
+  class="dark:hidden"
+/>
+
+> The <Link href="/api/">API reference</Link> gives you a great overview of all schemas, methods, and actions. For each one, the corresponding reference page also lists down other related schemas, methods, and actions for better discoverability.
+
+#### Schemas
+
+Schemas are the starting point for using Valibot. They allow you to validate **a specific data type**, like a string, object, or date. Each schema is independent. They can be reused or even nested to reflect more complex data structures.
+
+```ts
+import * as v from 'valibot';
+
+const BookSchema = v.object({
+  title: v.string(),
+  numberOfPages: v.number(),
+  publication: v.date(),
+  tags: v.array(v.string()),
+});
+```
+
+Every schema function returns an accesible object that contains all its properties. However, in most cases you don't need to access them directly. Instead, you use methods that help you modify or use a schema.
+
+#### Methods
+
+Methods help you either **modify or use a schema**. For example, the <Link href="/api/parse/">`parse`</Link> method helps you parse unknown data based on a schema. When you use a method, you always pass the schema as the first argument.
+
+```ts
+import * as v from 'valibot';
+
+const BookSchema = v.object({…});
+
+function createBook(data: unknown) {
+  return v.parse(BookSchema, data);
+}
+```
+
+> Most methods are used with schemas. However, there are a few exceptions, such as <Link href="/api/forward/">`forward`</Link> and <Link href="/api/flatten/">`flatten`</Link>, which are used with actions or issues.
+
+#### Actions
+
+Actions help you to **further validate or transform** a specific data type. They are used exclusively in conjunction with the <Link href="/api/pipe/">`pipe`</Link> method, which extends the functionality of a schema by adding additional validation and transformation rules. For example, the following schema can be used to trim a string and check if it is a valid email address.
+
+```ts
+import * as v from 'valibot';
+
+const EmailSchema = v.pipe(v.string(), v.trim(), v.email());
+```
+
+Actions are very powerful. There are basically no limits to what you can do with them. Besides basic validations and transformations as shown in the example above, they also allow you to modify the output type with actions like <Link href="/api/readonly/">`readonly`</Link> and <Link href="/api/brand/">`brand`</Link>.
+
+### Schemas
+
+Schemas allow you to validate a specific data type. They are similar to type definitions in TypeScript. Besides primitive values like strings and complex values like objects, Valibot also supports special cases like literals, unions and custom types.
+
+#### Primitive values
+
+Valibot supports the creation of schemas for any primitive data type. These are immutable values that are stored directly in the stack, unlike objects where only a reference to the heap is stored.
+
+<ApiList
+  label="Primitive schemas"
+  items={[
+    'bigint',
+    'boolean',
+    'null',
+    'number',
+    'string',
+    'symbol',
+    'undefined',
+  ]}
+/>
+
+```ts
+import * as v from 'valibot';
+
+const BigintSchema = v.bigint(); // bigint
+const BooleanSchema = v.boolean(); // boolean
+const NullSchema = v.null(); // null
+const NumberSchema = v.number(); // number
+const StringSchema = v.string(); // string
+const SymbolSchema = v.symbol(); // symbol
+const UndefinedSchema = v.undefined(); // undefined
+```
+
+#### Complex values
+
+Among complex values, Valibot supports objects, records, arrays, tuples, and several other classes.
+
+> There are various methods for objects such as <Link href="/api/pick/">`pick`</Link>, <Link href="/api/omit/">`omit`</Link>, <Link href="/api/partial/">`partial`</Link> and <Link href="/api/required/">`required`</Link>. Learn more about them <Link href="/guides/methods/#object-methods">here</Link>.
+
+<ApiList
+  label="Complex schemas"
+  items={[
+    'array',
+    'blob',
+    'date',
+    'file',
+    'function',
+    'looseObject',
+    'looseTuple',
+    'map',
+    'object',
+    'objectWithRest',
+    'promise',
+    'record',
+    'set',
+    'strictObject',
+    'strictTuple',
+    'tuple',
+    'tupleWithRest',
+  ]}
+/>
+
+```ts
+import * as v from 'valibot';
+
+const ArraySchema = v.array(v.string()); // string[]
+const BlobSchema = v.blob(); // Blob
+const DateSchema = v.date(); // Date
+const FileSchema = v.file(); // File
+const FunctionSchema = v.function(); // (...args: unknown[]) => unknown
+const LooseObjectSchema = v.looseObject({ key: v.string() }); // { key: string }
+const LooseTupleSchema = v.looseTuple([v.string(), v.number()]); // [string, number]
+const MapSchema = v.map(v.string(), v.number()); // Map<string, number>
+const ObjectSchema = v.object({ key: v.string() }); // { key: string }
+const ObjectWithRestSchema = v.objectWithRest({ key: v.string() }, v.null()); // { key: string } & { [key: string]: null }
+const PromiseSchema = v.promise(); // Promise<unknown>
+const RecordSchema = v.record(v.string(), v.number()); // Record<string, number>
+const SetSchema = v.set(v.number()); // Set<number>
+const StrictObjectSchema = v.strictObject({ key: v.string() }); // { key: string }
+const StrictTupleSchema = v.strictTuple([v.string(), v.number()]); // [string, number]
+const TupleSchema = v.tuple([v.string(), v.number()]); // [string, number]
+const TupleWithRestSchema = v.tupleWithRest([v.string(), v.number()], v.null()); // [string, number, ...null[]]
+```
+
+#### Special cases
+
+Beyond primitive and complex values, there are also schema functions for more special cases.
+
+<ApiList
+  label="Special schemas"
+  items={[
+    'any',
+    'custom',
+    'enum',
+    'exactOptional',
+    'instance',
+    'intersect',
+    'lazy',
+    'literal',
+    'nan',
+    'never',
+    'nonNullable',
+    'nonNullish',
+    'nonOptional',
+    'nullable',
+    'nullish',
+    'optional',
+    'picklist',
+    'undefinedable',
+    'union',
+    'unknown',
+    'variant',
+    'void',
+  ]}
+/>
+
+```ts
+import * as v from 'valibot';
+
+const AnySchema = v.any(); // any
+const CustomSchema = v.custom<`${number}px`>(isPixelString); // `${number}px`
+const EnumSchema = v.enum(Direction); // Direction
+const ExactOptionalSchema = v.exactOptional(v.string()); // string
+const InstanceSchema = v.instance(Error); // Error
+const LazySchema = v.lazy(() => v.string()); // string
+const IntersectSchema = v.intersect([v.string(), v.literal('a')]); // string & 'a'
+const LiteralSchema = v.literal('foo'); // 'foo'
+const NanSchema = v.nan(); // NaN
+const NeverSchema = v.never(); // never
+const NonNullableSchema = v.nonNullable(v.nullable(v.string())); // string
+const NonNullishSchema = v.nonNullish(v.nullish(v.string())); // string
+const NonOptionalSchema = v.nonOptional(v.optional(v.string())); // string
+const NullableSchema = v.nullable(v.string()); // string | null
+const NullishSchema = v.nullish(v.string()); // string | null | undefined
+const OptionalSchema = v.optional(v.string()); // string | undefined
+const PicklistSchema = v.picklist(['a', 'b']); // 'a' | 'b'
+const UndefinedableSchema = v.undefinedable(v.string()); // string | undefined
+const UnionSchema = v.union([v.string(), v.number()]); // string | number
+const UnknownSchema = v.unknown(); // unknown
+const VariantSchema = v.variant('type', [
+  v.object({ type: v.literal('a'), foo: v.string() }),
+  v.object({ type: v.literal('b'), bar: v.number() }),
+]); // { type: 'a'; foo: string } | { type: 'b'; bar: number }
+const VoidSchema = v.void(); // void
+```
+
+### Pipelines
+
+For detailed validations and transformations, a schema can be wrapped in a pipeline. Especially for schema functions like <Link href="/api/string/">`string`</Link>, <Link href="/api/number/">`number`</Link>, <Link href="/api/date/">`date`</Link>, <Link href="/api/object/">`object`</Link>, and <Link href="/api/array/">`array`</Link>, this feature is useful for validating properties beyond the raw data type.
+
+#### How it works
+
+In simple words, a pipeline is a list of schemas and actions that synchronously passes through the input data. It must always start with a schema, followed by up to 19 schemas or actions. Each schema and action can examine and modify the input. The pipeline is therefore perfect for detailed validations and transformations.
+
+##### Example
+
+For example, the pipeline feature can be used to trim a string and make sure that it is an email that ends with a specific domain.
+
+```ts
+import * as v from 'valibot';
+
+const EmailSchema = v.pipe(
+  v.string(),
+  v.trim(),
+  v.email(),
+  v.endsWith('@example.com')
+);
+```
+
+#### Validations
+
+Pipeline validation actions examine the input and, if the input does not meet a certain condition, return an issue. If the input is valid, it is returned as the output and, if present, picked up by the next action in the pipeline.
+
+> Whenever possible, pipelines are run completely, even if an issue has occurred, to collect all possible issues. If you want to abort the pipeline early after the first issue, you need to set the `abortPipeEarly` option to `true`. Learn more about this <Link href="/guides/parse-data/#configuration">here</Link>.
+
+<ApiList
+  label="Validation actions"
+  items={[
+    'base64',
+    'bic',
+    'bytes',
+    'check',
+    'checkItems',
+    'creditCard',
+    'cuid2',
+    'decimal',
+    'digits',
+    'email',
+    'emoji',
+    'empty',
+    'endsWith',
+    'entries',
+    'everyItem',
+    'excludes',
+    'finite',
+    'graphemes',
+    'gtValue',
+    'hash',
+    'hexadecimal',
+    'hexColor',
+    'includes',
+    'integer',
+    'ip',
+    'ipv4',
+    'ipv6',
+    'isbn',
+    'isoDate',
+    'isoDateTime',
+    'isoTime',
+    'isoTimeSecond',
+    'isoTimestamp',
+    'isoWeek',
+    'length',
+    'ltValue',
+    'mac',
+    'mac48',
+    'mac64',
+    'maxBytes',
+    'maxEntries',
+    'maxGraphemes',
+    'maxLength',
+    'maxSize',
+    'maxValue',
+    'maxWords',
+    'mimeType',
+    'minBytes',
+    'minEntries',
+    'minGraphemes',
+    'minLength',
+    'minSize',
+    'minValue',
+    'minWords',
+    'multipleOf',
+    'nanoid',
+    'nonEmpty',
+    'notBytes',
+    'notEntries',
+    'notGraphemes',
+    'notLength',
+    'notSize',
+    'notValue',
+    'notValues',
+    'notWords',
+    'octal',
+    'parseJson',
+    'partialCheck',
+    'rawCheck',
+    'regex',
+    'rfcEmail',
+    'safeInteger',
+    'size',
+    'slug',
+    'someItem',
+    'startsWith',
+    'ulid',
+    'url',
+    'uuid',
+    'value',
+    'values',
+    'words',
+  ]}
+/>
+
+Some of these actions can be combined with different schemas. For example, <Link href="/api/minValue/">`minValue`</Link> can be used to validate the minimum value of <Link href="/api/string/">`string`</Link>, <Link href="/api/number/">`number`</Link>, <Link href="/api/bigint/">`bigint`</Link>, and <Link href="/api/date/">`date`</Link>.
+
+```ts
+import * as v from 'valibot';
+
+const StringSchema = v.pipe(v.string(), v.minValue('foo'));
+const NumberSchema = v.pipe(v.number(), v.minValue(1234));
+const BigintSchema = v.pipe(v.bigint(), v.minValue(1234n));
+const DateSchema = v.pipe(v.date(), v.minValue(new Date()));
+```
+
+##### Custom validation
+
+For custom validations, <Link href="/api/check/">`check`</Link> can be used. If the function passed as the first argument returns `false`, an issue is returned. Otherwise, the input is considered valid.
+
+```ts
+import * as v from 'valibot';
+import { isValidUsername } from '~/utils';
+
+const UsernameSchema = v.pipe(
+  v.string(),
+  v.check(isValidUsername, 'This username is invalid.')
+);
+```
+
+> You can forward the issues of a pipeline validation to a child. See the <Link href="/guides/methods/#forward">methods</Link> guide for more information.
+
+#### Transformations
+
+Pipeline transformation actions allow to change the value and data type of the input data. This can be useful for example to remove spaces at the beginning or end of a string or to force a minimum or maximum value.
+
+<ApiList
+  label="Transformation actions"
+  items={[
+    'brand',
+    'filterItems',
+    'findItem',
+    'flavor',
+    'mapItems',
+    'rawTransform',
+    'readonly',
+    'reduceItems',
+    'sortItems',
+    'toBigint',
+    'toBoolean',
+    'toDate',
+    'toLowerCase',
+    'toMaxValue',
+    'toMinValue',
+    'toNumber',
+    'toString',
+    'toUpperCase',
+    'transform',
+    'trim',
+    'trimEnd',
+    'trimStart',
+  ]}
+/>
+
+For example, the pipeline of the following schema enforces a minimum value of 10. If the input is less than 10, it is replaced with the specified minimum value.
+
+```ts
+import * as v from 'valibot';
+
+const NumberSchema = v.pipe(v.number(), v.toMinValue(10));
+```
+
+##### Custom transformation
+
+For custom transformations, <Link href="/api/transform/">`transform`</Link> can be used. The function passed as the first argument is called with the input data and the return value defines the output. The following transformation changes the output of the schema to `null` for any number less than 10.
+
+```ts
+import * as v from 'valibot';
+
+const NumberSchema = v.pipe(
+  v.number(),
+  v.transform((input) => (input < 10 ? null : input))
+);
+```
+
+#### Metadata
+
+In addition to the validation and transformation actions, a pipeline can also be used to add metadata to a schema. This can be useful when working with AI tools or for documentation purposes.
+
+<ApiList
+  label="Metadata actions"
+  items={['description', 'metadata', 'title']}
+/>
+
+```ts
+const UsernameSchema = v.pipe(
+  v.string(),
+  v.regex(/^[a-z0-9_-]{4,16}$/iu),
+  v.title('Username'),
+  v.description(
+    'A username must be between 4 and 16 characters long and can only contain letters, numbers, underscores and hyphens.'
+  )
+);
+```
+
+### Parse data
+
+Now that you've learned how to create a schema, let's look at how you can use it to validate unknown data and make it type-safe. There are three different ways to do this.
+
+> Each schema has a `~run` method. However, this is an internal API and should only be used if you know what you are doing.
+
+#### Parse and throw
+
+The <Link href="/api/parse/">`parse`</Link> method will throw a <Link href="/api/ValiError/">`ValiError`</Link> if the input does not match the schema. Therefore, you should use a try/catch block to catch errors. If the input matches the schema, it is valid and the output of the schema will be returned with the correct TypeScript type.
+
+```ts
+import * as v from 'valibot';
+
+try {
+  const EmailSchema = v.pipe(v.string(), v.email());
+  const email = v.parse(EmailSchema, 'jane@example.com');
+
+  // Handle errors if one occurs
+} catch (error) {
+  console.log(error);
+}
+```
+
+#### Parse and return
+
+If you want issues to be returned instead of thrown, you can use <Link href="/api/safeParse/">`safeParse`</Link>. The returned value then contains the `.success` property, which is `true` if the input is valid or `false` otherwise.
+
+If the input is valid, you can use `.output` to get the output of the schema validation. Otherwise, if the input was invalid, the issues found can be accessed via `.issues`.
+
+```ts
+import * as v from 'valibot';
+
+const EmailSchema = v.pipe(v.string(), v.email());
+const result = v.safeParse(EmailSchema, 'jane@example.com');
+
+if (result.success) {
+  const email = result.output;
+} else {
+  console.log(result.issues);
+}
+```
+
+#### Type guards
+
+Another way to validate data that can be useful in individual cases is to use a type guard. You can use either a type predicate with the <Link href="/api/is/">`is`</Link> method or an assertion function with the <Link href="/api/assert/">`assert`</Link> method.
+
+If a type guard is used, the issues of the validation cannot be accessed. Also, transformations have no effect and unknown keys of an object are not removed. Therefore, this approach is not as safe and powerful as the two previous ways. Also, due to a TypeScript limitation, it can currently only be used with synchronous schemas.
+
+```ts
+import * as v from 'valibot';
+
+const EmailSchema = v.pipe(v.string(), v.email());
+const data: unknown = 'jane@example.com';
+
+if (v.is(EmailSchema, data)) {
+  const email = data; // string
+}
+```
+
+#### Configuration
+
+By default, Valibot exhaustively collects every issue during validation to give you detailed feedback on why the input does not match the schema. If this is not required for your use case, you can control this behavior with `abortEarly` and `abortPipeEarly` to improve the performance of validation.
+
+##### Abort validation
+
+If you set `abortEarly` to `true`, data validation immediately aborts upon finding the first issue. If you just want to know if some data matches a schema, but you don't care about the details, this can improve performance.
+
+```ts
+import * as v from 'valibot';
+
+try {
+  const ProfileSchema = v.object({
+    name: v.string(),
+    bio: v.string(),
+  });
+  const profile = v.parse(
+    ProfileSchema,
+    { name: 'Jane', bio: '' },
+    { abortEarly: true }
+  );
+
+  // Handle errors if one occurs
+} catch (error) {
+  console.log(error);
+}
+```
+
+##### Abort pipeline
+
+If you only set `abortPipeEarly` to `true`, the validation within a pipeline will only abort after finding the first issue. For example, if you only want to show the first error of a field when validating a form, you can use this option to improve performance.
+
+```ts
+import * as v from 'valibot';
+
+try {
+  const EmailSchema = v.pipe(v.string(), v.email(), v.endsWith('@example.com'));
+  const email = v.parse(EmailSchema, 'jane@example.com', {
+    abortPipeEarly: true,
+  });
+
+  // Handle errors if one occurs
+} catch (error) {
+  console.log(error);
+}
+```
+
+### Infer types
+
+Another cool feature of schemas is the ability to infer input and output types. This makes your work even easier because you don't have to write the type definition yourself.
+
+#### Infer input types
+
+The input type of a schema corresponds to the TypeScript type that the incoming data of a schema must match to be valid. To extract this type you use the utility type <Link href="/api/InferInput/">`InferInput`</Link>.
+
+> You are probably interested in the input type only in special cases. In most cases, the output type should be sufficient.
+
+```ts
+import * as v from 'valibot';
+
+const LoginSchema = v.object({
+  email: v.string(),
+  password: v.string(),
+});
+
+type LoginInput = v.InferInput<typeof LoginSchema>; // { email: string; password: string }
+```
+
+#### Infer output types
+
+The output type differs from the input type only if you use <Link href="/api/optional/">`optional`</Link>, <Link href="/api/nullable/">`nullable`</Link>, <Link href="/api/nullish/">`nullish`</Link> or <Link href="/api/undefinedable/">`undefinedable`</Link> with a default value or <Link href="/api/brand/">`brand`</Link>, <Link href="/api/readonly/">`readonly`</Link> or <Link href="/api/transform/">`transform`</Link> to transform the input or data type of a schema after validation. The output type corresponds to the output of <Link href="/api/parse/">`parse`</Link> and <Link href="/api/safeParse/">`safeParse`</Link>. To infer it, you use the utility type <Link href="/api/InferOutput/">`InferOutput`</Link>.
+
+```ts
+import * as v from 'valibot';
+import { hashPassword } from '~/utils';
+
+const LoginSchema = v.pipe(
+  v.object({
+    email: v.string(),
+    password: v.pipe(v.string(), v.transform(hashPassword)),
+  }),
+  v.transform((input) => {
+    return {
+      ...input,
+      timestamp: new Date().toISOString(),
+    };
+  })
+);
+
+type LoginOutput = v.InferOutput<typeof LoginSchema>; // { email: string; password: string; timestamp: string }
+```
+
+#### Infer issue types
+
+You can also infer the possible issues of a schema. This can be useful if you want to handle the issues in a particular way. To extract this information from a schema you use the utility type <Link href="/api/InferIssue/">`InferIssue`</Link>.
+
+```ts
+import * as v from 'valibot';
+
+const LoginSchema = v.object({
+  email: v.pipe(v.string(), v.email()),
+  password: v.pipe(v.string(), v.minLength(8)),
+});
+
+type Issue = v.InferIssue<typeof LoginSchema>; // v.ObjectIssue | v.StringIssue | v.EmailIssue<string> | v.MinLengthIssue<string, 8>
+```
+
+### Methods
+
+Apart from <Link href="/api/parse/">`parse`</Link> and <Link href="/api/safeParse/">`safeParse`</Link>, Valibot offers some more methods to make working with your schemas easier. In the following we distinguish between schema, object and pipeline methods.
+
+#### Schema methods
+
+Schema methods add functionality, simplify ergonomics, and help you use schemas for validation and data extraction.
+
+<ApiList
+  label="Schema methods"
+  items={[
+    'assert',
+    'config',
+    'fallback',
+    'flatten',
+    'getDefault',
+    'getDefaults',
+    'getDescription',
+    'getFallback',
+    'getFallbacks',
+    'getMetadata',
+    'getTitle',
+    'is',
+    'message',
+    'parse',
+    'safeParse',
+    'summarize',
+    'pipe',
+    'unwrap',
+  ]}
+/>
+
+> For more information on <Link href="/api/pipe/">`pipe`</Link>, see the <Link href="/guides/pipelines/">pipelines</Link> guide. For more information on validation methods, see the <Link href="/guides/parse-data/">parse data</Link> guide. For more information on <Link href="/api/flatten/">`flatten`</Link>, see the <Link href="/guides/issues/#formatting">issues</Link> guide.
+
+##### Fallback
+
+If an issue occurs while validating your schema, you can catch it with <Link href="/api/fallback/">`fallback`</Link> to return a predefined value instead.
+
+```ts
+import * as v from 'valibot';
+
+const StringSchema = v.fallback(v.string(), 'hello');
+const stringOutput = v.parse(StringSchema, 123); // 'hello'
+```
+
+#### Object methods
+
+Object methods make it easier for you to work with object schemas. They are strongly oriented towards TypeScript's utility types.
+
+<ApiList
+  label="Object methods"
+  items={['keyof', 'omit', 'partial', 'pick', 'required']}
+/>
+
+##### TypeScript similarities
+
+Like in TypeScript, you can make the values of an object optional with <Link href="/api/partial/">`partial`</Link>, make them required with <Link href="/api/required/">`required`</Link>, and even include/exclude certain values from an existing schema with <Link href="/api/pick/">`pick`</Link> and <Link href="/api/omit/">`omit`</Link>.
+
+```ts
+import * as v from 'valibot';
+
+// TypeScript
+type Object1 = Partial<{ key1: string; key2: number }>;
+
+// Valibot
+const object1 = v.partial(v.object({ key1: v.string(), key2: v.number() }));
+
+// TypeScript
+type Object2 = Pick<Object1, 'key1'>;
+
+// Valibot
+const object2 = v.pick(object1, ['key1']);
+```
+
+#### Pipeline methods
+
+Pipeline methods modify the results of validations and transformations within a pipeline.
+
+<ApiList label="Pipeline methods" items={['forward']} />
+
+> For more info about our pipeline feature, see the <Link href="/guides/pipelines/">pipelines</Link> guide.
+
+##### Forward
+
+‎<Link href="/api/forward/">`forward`</Link> allows you to associate an issue with a nested schema. For example, if you want to check that both password entries in a registration form match, you can use it to forward the issue to the second password field in case of an error. This allows you to display the error message in the correct place.
+
+```ts
+import * as v from 'valibot';
+
+const RegisterSchema = v.pipe(
+  v.object({
+    email: v.pipe(
+      v.string(),
+      v.nonEmpty('Please enter your email.'),
+      v.email('The email address is badly formatted.')
+    ),
+    password1: v.pipe(
+      v.string(),
+      v.nonEmpty('Please enter your password.'),
+      v.minLength(8, 'Your password must have 8 characters or more.')
+    ),
+    password2: v.string(),
+  }),
+  v.forward(
+    v.partialCheck(
+      [['password1'], ['password2']],
+      (input) => input.password1 === input.password2,
+      'The two passwords do not match.'
+    ),
+    ['password2']
+  )
+);
+```
+
+### Issues
+
+When validating unknown data against a schema, Valibot collects information about each issue. If there is at least one issue, these are returned in an array. Each issue provides detailed information for you or your users to fix the problem.
+
+#### Issue info
+
+A single issue conforms to the TypeScript type definition below.
+
+```ts
+type BaseIssue = {
+  // Required info
+  kind: 'schema' | 'validation' | 'transformation';
+  type: string;
+  input: unknown;
+  expected: string | null;
+  received: string;
+  message: string;
+
+  // Optional info
+  requirement?: unknown;
+  path?: IssuePath;
+  issues?: Issues;
+  lang?: string;
+  abortEarly?: boolean;
+  abortPipeEarly?: boolean;
+  skipPipe?: boolean;
+};
+```
+
+##### Required info
+
+Each issue contains the following required information.
+
+###### Kind
+
+`kind` describes the kind of the problem. If an input does not match the data type, for example a number was passed instead of a string, `kind` has the value `'schema'`. In all other cases, the reason is not the data type but the actual content of the data. For example, if a string is invalid because it does not match a regex, `kind` has the value `'validation'`.
+
+###### Type
+
+`type` describes which function did the validation. If the schema function <Link href="/api/array/">`array`</Link> detects that the input is not an array, `type` has the value `'array'`. If the <Link href="/api/minLength/">`minLength`</Link> validation function detects that an array is too short, `type` has the value `'min_length'`.
+
+###### Input
+
+`input` contains the input data where the issue was found. For complex data, for example objects, `input` contains the value of the respective key that does not match the schema.
+
+###### Expected
+
+`expected` is a language-neutral string that describes the data property that was expected. It can be used to create useful error messages. If your users aren't developers, you can replace the language-neutral symbols with language-specific words.
+
+###### Received
+
+`received` is a language-neutral string that describes the data property that was received. It can be used to create useful error messages. If your users aren't developers, you can replace the language-neutral symbols with language-specific words.
+
+###### Message
+
+`message` contains a human-understandable error message that can be fully customized as described in our <Link href="/guides/quick-start/#error-messages">quick start</Link> and <Link href="/guides/internationalization/">internationalization</Link> guide.
+
+##### Optional info
+
+Some issues contain further optional information.
+
+###### Requirement
+
+`requirement` can contain further validation information. For example, if the <Link href="/api/minLength/">`minLength`</Link> validation function detects that a string is too short, `requirement` contains the minimum length that the string should have.
+
+###### Path
+
+`path` is an array of objects that describes where an issue is located within complex data. Each path item contains the following information.
+
+> The `input` of a path item may differ from the `input` of its issue. This is because path items are subsequently added by parent schemas and are related to their input. Transformations of child schemas are not taken into account.
+
+```ts
+type PathItem = {
+  type: string;
+  origin: 'key' | 'value';
+  input: unknown;
+  key?: unknown;
+  value: unknown;
+};
+```
+
+For example, you can use the following code to create a dot path.
+
+```ts
+import * as v from 'valibot';
+
+const dotPath = v.getDotPath(issue);
+```
+
+###### Issues
+
+`issues` currently only occur when using <Link href="/api/union/">`union`</Link> and contains all issues of the schemas of an union type.
+
+###### Config
+
+`lang` can be used as part of our <Link href="/guides/internationalization/">i18n feature</Link> to define the required language. `abortEarly` and `abortPipeEarly` gives you an info that the validation was aborted prematurely. You can find more info about this in the <Link href="/guides/parse-data/#configuration">parse data</Link> guide. These are all configurations that you can control yourself.
+
+#### Formatting
+
+For common use cases such as form validation, Valibot includes small built-in functions for formatting issues. However, once you understand how they work, you can easily format them yourself and put them in the right form for your use case.
+
+##### Flatten errors
+
+If you are only interested in the error messages of each issue to show them to your users, you can convert an array of issues to a flat object with <Link href="/api/flatten/">`flatten`</Link>. Below is an example.
+
+```ts
+import * as v from 'valibot';
+
+const ObjectSchema = v.object({
+  foo: v.string('Value of "foo" is missing.'),
+  bar: v.object({
+    baz: v.string('Value of "bar.baz" is missing.'),
+  }),
+});
+
+const result = v.safeParse(ObjectSchema, { bar: {} });
+
+if (result.issues) {
+  console.log(v.flatten<typeof ObjectSchema>(result.issues));
+}
+```
+
+The `result` returned in the code sample above this text contains the following issues.
+
+```ts
+[
+  {
+    kind: 'schema',
+    type: 'string',
+    input: undefined,
+    expected: 'string',
+    received: 'undefined',
+    message: 'Value of "foo" is missing.',
+    path: [
+      {
+        type: 'object',
+        origin: 'value',
+        input: {
+          bar: {},
+        },
+        key: 'foo',
+        value: undefined,
+      },
+    ],
+  },
+  {
+    kind: 'schema',
+    type: 'string',
+    input: undefined,
+    expected: 'string',
+    received: 'undefined',
+    message: 'Value of "bar.baz" is missing.',
+    path: [
+      {
+        type: 'object',
+        origin: 'value',
+        input: {
+          bar: {},
+        },
+        key: 'bar',
+        value: {},
+      },
+      {
+        type: 'object',
+        origin: 'value',
+        input: {},
+        key: 'baz',
+        value: undefined,
+      },
+    ],
+  },
+];
+```
+
+However, with the help of <Link href="/api/flatten/">`flatten`</Link> the issues were converted to the following object.
+
+```ts
+{
+  nested: {
+    foo: ['Value of "foo" is missing.'],
+    'bar.baz': ['Value of "bar.baz" is missing.'],
+  },
+};
+```
+
+## Schemas
+
+### Objects
+
+To validate objects with a schema, you can use <Link href="/api/object/">`object`</Link> or <Link href="/api/record/">`record`</Link>. You use <Link href="/api/object/">`object`</Link> for an object with a specific shape and <Link href="/api/record/">`record`</Link> for objects with any number of uniform entries.
+
+#### Object schema
+
+The first argument is used to define the specific structure of the object. Each entry consists of a key and a schema as the value. The entries of the input are then validated against these schemas.
+
+```ts
+import * as v from 'valibot';
+
+const ObjectSchema = v.object({
+  key1: v.string(),
+  key2: v.number(),
+});
+```
+
+##### Loose and strict objects
+
+The <Link href="/api/object/">`object`</Link> schema removes unknown entries. This means that entries that you have not defined in the first argument are not validated and added to the output. You can change this behavior by using the <Link href="/api/looseObject/">`looseObject`</Link> or <Link href="/api/strictObject/">`strictObject`</Link> schema instead.
+
+The <Link href="/api/looseObject/">`looseObject`</Link> schema allows unknown entries and adds them to the output. The <Link href="/api/strictObject/">`strictObject`</Link> schema forbids unknown entries and returns an issue for the first unknown entry found.
+
+##### Object with specific rest
+
+Alternatively, you can also use the <Link href="/api/objectWithRest/">`objectWithRest`</Link> schema to define a specific schema for unknown entries. Any entries not defined in the first argument are then validated against the schema of the second argument.
+
+```ts
+import * as v from 'valibot';
+
+const ObjectSchema = v.objectWithRest(
+  {
+    key1: v.string(),
+    key2: v.number(),
+  },
+  v.null()
+);
+```
+
+##### Pipeline validation
+
+To validate the value of an entry based on another entry, you can wrap you schema with the <Link href="/api/check/">`check`</Link> validation action in a pipeline. You can also use <Link href="/api/forward/">`forward`</Link> to assign the issue to a specific object key in the event of an error.
+
+> If you only want to validate specific entries, we recommend using <Link href="/api/partialCheck/">`partialCheck`</Link> instead as <Link href="/api/check/">`check`</Link> can only be executed if the input is fully typed.
+
+```ts
+import * as v from 'valibot';
+
+const CalculationSchema = v.pipe(
+  v.object({
+    a: v.number(),
+    b: v.number(),
+    sum: v.number(),
+  }),
+  v.forward(
+    v.check(({ a, b, sum }) => a + b === sum, 'The calculation is incorrect.'),
+    ['sum']
+  )
+);
+```
+
+#### Record schema
+
+For an object with any number of uniform entries, <Link href="/api/record/">`record`</Link> is the right choice. The schema passed as the first argument validates the keys of your record, and the schema passed as the second argument validates the values.
+
+```ts
+import * as v from 'valibot';
+
+const RecordSchema = v.record(v.string(), v.number()); // Record<string, number>
+```
+
+##### Specific record keys
+
+Instead of <Link href="/api/string/">`string`</Link>, you can also use <Link href="/api/custom/">`custom`</Link>, <Link href="/api/enum/">`enum`</Link>, <Link href="/api/literal/">`literal`</Link>, <Link href="/api/picklist/">`picklist`</Link> or <Link href="/api/union/">`union`</Link> to validate the keys.
+
+```ts
+import * as v from 'valibot';
+
+const RecordSchema = v.record(v.picklist(['key1', 'key2']), v.number()); // { key1?: number; key2?: number }
+```
+
+Note that <Link href="/api/record/">`record`</Link> marks all literal keys as optional in this case. If you want to make them required, you can use the <Link href="/api/object/">`object`</Link> schema with the <Link href="/api/entriesFromList/">`entriesFromList`</Link> util instead.
+
+```ts
+import * as v from 'valibot';
+
+const RecordSchema = v.object(v.entriesFromList(['key1', 'key2'], v.number())); // { key1: number; key2: number }
+```
+
+##### Pipeline validation
+
+To validate the value of an entry based on another entry, you can wrap you schema with the <Link href="/api/check/">`check`</Link> validation action in a pipeline. You can also use <Link href="/api/forward/">`forward`</Link> to assign the issue to a specific record key in the event of an error.
+
+```ts
+import * as v from 'valibot';
+
+const CalculationSchema = v.pipe(
+  v.record(v.picklist(['a', 'b', 'sum']), v.number()),
+  v.forward(
+    v.check(
+      ({ a, b, sum }) => (a || 0) + (b || 0) === (sum || 0),
+      'The calculation is incorrect.'
+    ),
+    ['sum']
+  )
+);
+```
+
+### Arrays
+
+To validate arrays with a schema you can use <Link href="/api/array/">`array`</Link> or <Link href="/api/tuple/">`tuple`</Link>. You use <Link href="/api/tuple/">`tuple`</Link> if your array has a specific shape and <Link href="/api/array/">`array`</Link> if it has any number of uniform items.
+
+#### Array schema
+
+The first argument you pass to <Link href="/api/array/">`array`</Link> is a schema, which is used to validate the items of the array.
+
+```ts
+import * as v from 'valibot';
+
+const ArraySchema = v.array(v.number()); // number[]
+```
+
+##### Pipeline validation
+
+To validate the length or contents of the array, you can use a pipeline.
+
+```ts
+import * as v from 'valibot';
+
+const ArraySchema = v.pipe(
+  v.array(v.string()),
+  v.minLength(1),
+  v.maxLength(5),
+  v.includes('foo'),
+  v.excludes('bar')
+);
+```
+
+#### Tuple schema
+
+A <Link href="/api/tuple/">`tuple`</Link> is an array with a specific shape. The first argument that you pass to the function is a tuple of schemas that defines its shape.
+
+```ts
+import * as v from 'valibot';
+
+const TupleSchema = v.tuple([v.string(), v.number()]); // [string, number]
+```
+
+##### Loose and strict tuples
+
+The <Link href="/api/tuple/">`tuple`</Link> schema removes unknown items. This means that items that you have not defined in the first argument are not validated and added to the output. You can change this behavior by using the <Link href="/api/looseTuple/">`looseTuple`</Link> or <Link href="/api/strictTuple/">`strictTuple`</Link> schema instead.
+
+The <Link href="/api/looseTuple/">`looseTuple`</Link> schema allows unknown items and adds them to the output. The <Link href="/api/strictTuple/">`strictTuple`</Link> schema forbids unknown items and returns an issue for the first unknown item found.
+
+##### Tuple with specific rest
+
+Alternatively, you can also use the <Link href="/api/tupleWithRest/">`tupleWithRest`</Link> schema to define a specific schema for unknown items. Any items not defined in the first argument are then validated against the schema of the second argument.
+
+```ts
+import * as v from 'valibot';
+
+const TupleSchema = v.tupleWithRest([v.string(), v.number()], v.null());
+```
+
+##### Pipeline validation
+
+Similar to arrays, you can use a pipeline to validate the length and contents of a tuple.
+
+```ts
+import * as v from 'valibot';
+
+const TupleSchema = v.pipe(
+  v.tupleWithRest([v.string()], v.string()),
+  v.maxLength(5),
+  v.includes('foo'),
+  v.excludes('bar')
+);
+```
+
+### Optionals
+
+It often happens that `undefined` or `null` should also be accepted instead of the value. To make the API more readable for this and to reduce boilerplate, Valibot offers a shortcut for this functionality with <Link href="/api/optional/">`optional`</Link>, <Link href="/api/exactOptional/">`exactOptional`</Link>, <Link href="/api/undefinedable/">`undefinedable`</Link>, <Link href="/api/nullable/">`nullable`</Link> and <Link href="/api/nullish/">`nullish`</Link>.
+
+#### How it works
+
+To accept `undefined` and/or `null` besides your actual value, you just have to wrap the schema in <Link href="/api/optional/">`optional`</Link>, <Link href="/api/exactOptional/">`exactOptional`</Link>, <Link href="/api/undefinedable/">`undefinedable`</Link>, <Link href="/api/nullable/">`nullable`</Link> or <Link href="/api/nullish/">`nullish`</Link>.
+
+> Note: <Link href="/api/exactOptional/">`exactOptional`</Link> allows missing entries in objects, but does not allow `undefined` as a specified value.
+
+```ts
+import * as v from 'valibot';
+
+const OptionalStringSchema = v.optional(v.string()); // string | undefined
+const ExactOptionalStringSchema = v.exactOptional(v.string()); // string
+const UndefinedableStringSchema = v.undefinedable(v.string()); // string | undefined
+const NullableStringSchema = v.nullable(v.string()); // string | null
+const NullishStringSchema = v.nullish(v.string()); // string | null | undefined
+```
+
+##### Use in objects
+
+When used inside of objects, <Link href="/api/optional/">`optional`</Link>, <Link href="/api/exactOptional/">`exactOptional`</Link> and <Link href="/api/nullish/">`nullish`</Link> is a special case, as it also marks the value as optional in TypeScript with a question mark.
+
+```ts
+import * as v from 'valibot';
+
+const OptionalKeySchema = v.object({ key: v.optional(v.string()) }); // { key?: string | undefined }
+```
+
+#### Default values
+
+What makes <Link href="/api/optional/">`optional`</Link>, <Link href="/api/exactOptional/">`exactOptional`</Link>, <Link href="/api/undefinedable/">`undefinedable`</Link>, <Link href="/api/nullable/">`nullable`</Link> and <Link href="/api/nullish/">`nullish`</Link> unique is that the schema functions accept a default value as the second argument. Depending on the schema function, this default value is always used if the input is missing, `undefined` or `null`.
+
+```ts
+import * as v from 'valibot';
+
+const OptionalStringSchema = v.optional(v.string(), "I'm the default!");
+
+type OptionalStringInput = v.InferInput<typeof OptionalStringSchema>; // string | undefined
+type OptionalStringOutput = v.InferOutput<typeof OptionalStringSchema>; // string
+```
+
+By providing a default value, the input type of the schema now differs from the output type. The schema in the example now accepts `string` and `undefined` as input, but returns a string as output in both cases.
+
+##### Dynamic default values
+
+In some cases it is necessary to generate the default value dynamically. For this purpose, a function that generates and returns the default value can also be passed as the second argument.
+
+```ts
+import * as v from 'valibot';
+
+const NullableDateSchema = v.nullable(v.date(), () => new Date());
+```
+
+The previous example thus creates a new instance of the [`Date`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date) class for each validation with `null` as input, which is then used as the default value.
+
+##### Dependent default values
+
+In rare cases, a default value for an optional entry may depend on the values of another entries in the same object. This can be achieved by using <Link href="/api/transform/">`transform`</Link> in the <Link href="/api/pipe/">`pipe`</Link> of the object.
+
+```ts
+import * as v from 'valibot';
+
+const CalculationSchema = v.pipe(
+  v.object({
+    a: v.number(),
+    b: v.number(),
+    sum: v.optional(v.number()),
+  }),
+  v.transform((input) => ({
+    ...input,
+    sum: input.sum === undefined ? input.a + input.b : input.sum,
+  }))
+);
+```
+
+### Enums
+
+An enumerated type is a data type that consists of a set of values. They can be represented by either an object, a TypeScript enum or, to keep things simple, an array. You use <Link href="/api/enum/">`enum`</Link> for objects and TypeScript enums and <Link href="/api/picklist/">`picklist`</Link> for arrays.
+
+#### Enum schema
+
+Since TypeScript enums are transpiled to JavaScript objects by the TypeScript compiler, you can use the <Link href="/api/enum/">`enum`</Link> schema function for both. Just pass your enumerated data type as the first argument to the schema function. On validation, the schema checks whether the input matches one of the values in the enum.
+
+```ts
+import * as v from 'valibot';
+
+// As JavaScript object
+const Direction = {
+  Left: 'LEFT',
+  Right: 'RIGHT',
+} as const;
+
+// As TypeScript enum
+enum Direction {
+  Left = 'LEFT',
+  Right = 'RIGHT',
+}
+
+const DirectionSchema = v.enum(Direction);
+```
+
+#### Picklist schema
+
+For a set of values represented by an array, you can use the <Link href="/api/picklist/">`picklist`</Link> schema function. Just pass your array as the first argument to the schema function. On validation, the schema checks whether the input matches one of the items in the array.
+
+```ts
+import * as v from 'valibot';
+
+const Direction = ['LEFT', 'RIGHT'] as const;
+
+const DirectionSchema = v.picklist(Direction);
+```
+
+##### Format array
+
+In some cases, the array may not be in the correct format. In this case, simply use the [`.map()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map) method to bring it into the required format.
+
+```ts
+import * as v from 'valibot';
+
+const countries = [
+  { name: 'Germany', code: 'DE' },
+  { name: 'France', code: 'FR' },
+  { name: 'United States', code: 'US' },
+] as const;
+
+const CountrySchema = v.picklist(countries.map((country) => country.code));
+```
+
+### Unions
+
+An union represents a logical OR relationship. You can apply this concept to your schemas with <Link href="/api/union/">`union`</Link> and <Link href="/api/variant/">`variant`</Link>. For [discriminated unions](https://www.typescriptlang.org/docs/handbook/typescript-in-5-minutes-func.html#discriminated-unions) you use <Link href="/api/variant/">`variant`</Link> and in all other cases you use <Link href="/api/union/">`union`</Link>.
+
+#### Union schema
+
+The schema function <Link href="/api/union/">`union`</Link> creates an OR relationship between any number of schemas that you pass as the first argument in the form of an array. On validation, the schema returns the result of the first schema that was successfully validated.
+
+```ts
+import * as v from 'valibot';
+
+// TypeScript
+type Union = string | number;
+
+// Valibot
+const UnionSchema = v.union([v.string(), v.number()]);
+```
+
+If a bad input can be uniquely assigned to one of the schemas based on the data type, the result of that schema is returned. Otherwise, a general issue is returned that contains the issues of each schema as subissues. This is a special case within the library, as the issues of <Link href="/api/union/">`union`</Link> can contradict each other.
+
+The following issues are returned if the input is `null` instead of a string or number. Since the input cannot be associated with a schema in this case, the issues of both schemas are returned as subissues.
+
+```ts
+[
+  {
+    kind: 'schema',
+    type: 'union',
+    input: null,
+    expected: 'string | number',
+    received: 'null',
+    message: 'Invalid type: Expected string | number but received null',
+    issues: [
+      {
+        kind: 'schema',
+        type: 'string',
+        input: null,
+        expected: 'string',
+        received: 'null',
+        message: 'Invalid type: Expected string but received null',
+      },
+      {
+        kind: 'schema',
+        type: 'number',
+        input: null,
+        expected: 'number',
+        received: 'null',
+        message: 'Invalid type: Expected number but received null',
+      },
+    ],
+  },
+];
+```
+
+#### Variant schema
+
+For better performance, more type safety, and a more targeted output of issues, you can use <Link href="/api/variant/">`variant`</Link> for discriminated unions. Therefore, we recommend using <Link href="/api/variant/">`variant`</Link> over <Link href="/api/union/">`union`</Link> whenever possible. A discriminated union is an OR relationship between objects that can be distinguished by a specific key.
+
+When you call the schema function, you first specify the discriminator key. This is used to determine the schema to use for validation based on the input. The object schemas, in the form of an array, follow as the second argument.
+
+```ts
+import * as v from 'valibot';
+
+const VariantScheme = v.variant('type', [
+  v.object({
+    type: v.literal('foo'),
+    foo: v.string(),
+  }),
+  v.object({
+    type: v.literal('bar'),
+    bar: v.number(),
+  }),
+]);
+```
+
+For very complex datasets, multiple <Link href="/api/variant/">`variant`</Link> schemas can also be deeply nested within one another.
+
+### Intersections
+
+An intersection represents a logical AND relationship. You can apply this concept to your schemas with <Link href="/api/intersect/">`intersect`</Link> and partially by merging multiple object schemas into a new one. We recommend this approach for simple object schemas, and <Link href="/api/intersect/">`intersect`</Link> for all other cases.
+
+#### Intersect schema
+
+The schema function <Link href="/api/intersect/">`intersect`</Link> creates an AND relationship between any number of schemas that you pass as the first argument in the form of an array. To pass the validation, the validation of each schema passed must be successful. If this is the case, the schema merges the output of the individual schemas and returns the result. If the validation fails, the schema returns any issues that occurred.
+
+```ts
+import * as v from 'valibot';
+
+// TypeScript
+type Intersect = { foo: string } & { bar: number };
+
+// Valibot
+const IntersectSchema = v.intersect([
+  v.object({ foo: v.string() }),
+  v.object({ bar: v.number() }),
+]);
+```
+
+#### Merge objects
+
+Technically, there is a big difference between <Link href="/api/intersect/">`intersect`</Link> and object merging. <Link href="/api/intersect/">`intersect`</Link> is a schema function that executes the passed schemas during validation. In contrast, object merging is done during initialization to create a new object schema.
+
+As a result, object merging usually has much better performance than <Link href="/api/intersect/">`intersect`</Link> when validating unknown data. Also, subsequent object properties overwrite the previous ones. This is not the case with <Link href="/api/intersect/">`intersect`</Link>, since the validation would fail if two properties with the same name are fundamentally different.
+
+```ts
+import * as v from 'valibot';
+
+const ObjectSchema1 = v.object({ foo: v.string(), baz: v.number() });
+const ObjectSchema2 = v.object({ bar: v.string(), baz: v.boolean() });
+
+const MergedSchema = v.object({
+  ...ObjectSchema1.entries,
+  ...ObjectSchema2.entries,
+}); // { foo: string; bar: string; baz: boolean }
+```
+
+In the previous code example, the `baz` property of the first object schema is overwritten by the `baz` property of the second object schema.
+
+### Other
+
+This guide explains other special schema functions such as <Link href="/api/literal/">`literal`</Link>, <Link href="/api/instance/">`instance`</Link>, <Link href="/api/custom/">`custom`</Link> and <Link href="/api/lazy/">`lazy`</Link> that are not covered in the other guides.
+
+#### Literal schema
+
+You can use <Link href="/api/literal/">`literal`</Link> to define a schema that matches a specific string, number or boolean value. Therefore, this schema is perfect for representing [literal types](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#literal-types). Usage is simple, just pass the value you want to match as the first argument.
+
+```ts
+import * as v from 'valibot';
+
+const StringLiteralSchema = v.literal('foo'); // 'foo'
+const NumberLiteralSchema = v.literal(12345); // 12345
+const BooleanLiteralSchema = v.literal(true); // true
+```
+
+#### Instance schema
+
+With schema functions like <Link href="/api/blob/">`blob`</Link>, <Link href="/api/date/">`date`</Link>, <Link href="/api/map/">`map`</Link> and <Link href="/api/set/">`set`</Link> Valibot already covers the most common JavaScript classes. However, there are many more classes that you may want to validate. For this purpose, you can use the <Link href="/api/instance/">`instance`</Link> schema function. It takes a class as its first argument and returns a schema that matches only instances of that class.
+
+```ts
+import * as v from 'valibot';
+
+const ErrorSchema = v.instance(Error); // Error
+const UrlSchema = v.instance(URL); // URL
+```
+
+#### Custom schema
+
+The <Link href="/api/custom/">`custom`</Link> schema function is a bit more advanced. It allows you to define a schema that matches a value based on a custom function. Use it whenever you need to define a schema that cannot be expressed using any of the other schema functions.
+
+The function receives the value to validate as its first argument and must return a boolean value. If the function returns `true`, the value is considered valid. Otherwise, it is considered invalid.
+
+```ts
+import * as v from 'valibot';
+
+const PixelStringSchema = v.custom<`${number}px`>((input) =>
+  typeof input === 'string' ? /^\d+px$/.test(input) : false
+);
+```
+
+#### Lazy schema
+
+The <Link href="/api/lazy/">`lazy`</Link> schema function allows you to define recursive schemas. A recursive schema is a schema that references itself. For example, you can use it to define a schema for a tree-like data structure.
+
+> Due to a TypeScript limitation, the input and output types cannot be inferred automatically in this case. Therefore, you must explicitly specify these types using the <Link href="/api/GenericSchema/">`GenericSchema`</Link> type.
+
+```ts
+import * as v from 'valibot';
+
+type BinaryTree = {
+  element: string;
+  left: BinaryTree | null;
+  right: BinaryTree | null;
+};
+
+const BinaryTreeSchema: v.GenericSchema<BinaryTree> = v.object({
+  element: v.string(),
+  left: v.nullable(v.lazy(() => BinaryTreeSchema)),
+  right: v.nullable(v.lazy(() => BinaryTreeSchema)),
+});
+```
+
+##### JSON schema
+
+Another practical use case for `lazy` is a schema for all possible `JSON` values. These are all values that can be serialized and deserialized using `JSON.stringify()` and `JSON.parse()`.
+
+```ts
+import * as v from 'valibot';
+
+type JsonData =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: JsonData }
+  | JsonData[];
+
+const JsonSchema: v.GenericSchema<JsonData> = v.lazy(() =>
+  v.union([
+    v.string(),
+    v.number(),
+    v.boolean(),
+    v.null(),
+    v.record(v.string(), JsonSchema),
+    v.array(JsonSchema),
+  ])
+);
+```
+
+## Advanced
+
+### Naming convention
+
+In many cases a schema is created and exported together with the inferred type. There are two naming conventions for this procedure that we recommend you to use when working with Valibot. In this guide we will explain both of them and share why we think they might make sense.
+
+> You don't have to follow any of these conventions. They are only recommendations.
+
+#### Convention 1
+
+The first naming convention exports the schema and type with the same name. The advantage of this is that the names are short and the boilerplate is low, since the schema and type can be imported together.
+
+We also recommend to follow the [PascalCase](<https://en.wikipedia.org/wiki/Naming_convention_(programming)>) naming convention. This means that each word starts with an uppercase letter. This is a common convention for TypeScript types, and since schemas basically provide runtime validation of types, it makes sense to use this convention for schemas as well.
+
+##### Example
+
+In the following example, a schema is created for a user object. In order to follow the naming convention, the schema and the type are exported with the same name.
+
+```ts
+import * as v from 'valibot';
+
+export const PublicUser = v.object({
+  name: v.pipe(v.string(), v.maxLength(30)),
+  email: v.pipe(v.string(), v.email()),
+  avatar: v.nullable(v.file()),
+  bio: v.pipe(v.string(), v.maxLength(1000)),
+});
+
+export type PublicUser = v.InferOutput<typeof PublicUser>;
+```
+
+The schema and type can then be imported and used together.
+
+```ts
+import * as v from 'valibot';
+import { PublicUser } from './types';
+
+// Use `PublicUser` as a type
+const publicUsers: PublicUser[] = [];
+
+publicUsers.push(
+  // Use `PublicUser` as a schema
+  v.parse(PublicUser, {
+    name: 'Jane Doe',
+    email: 'jane@example.com',
+    avatar: null,
+    bio: 'Lorem ipsum ...',
+  })
+);
+```
+
+#### Convention 2
+
+The first naming convention can cause naming conflicts with other classes and types. It also causes a problem when you need to export both the input and output types of a schema.
+
+The second naming convention provides a solution. It also follows the [PascalCase](<https://en.wikipedia.org/wiki/Naming_convention_(programming)>) naming convention, but adds an appropriate suffix to each export. Schemas get the suffix `Schema`, input types get the suffix `Input` and output types get the suffix `Output`.
+
+> If there is no difference between the input and output type, the suffix `Data` can optionally be used to indicate this.
+
+This requires the schema and types to be imported separately, which increases the overhead. However, the naming convention is more precise, flexible, and works in any use case.
+
+##### Example
+
+In the following example, a schema is created for an image object. In order to follow the naming convention, the schema and the types are exported with different names.
+
+```ts
+import * as v from 'valibot';
+
+export const ImageSchema = v.object({
+  status: v.optional(v.picklist(['public', 'private']), 'private'),
+  created: v.optional(v.date(), () => new Date()),
+  title: v.pipe(v.string(), v.maxLength(100)),
+  source: v.pipe(v.string(), v.url()),
+  size: v.pipe(v.number(), v.minValue(0)),
+});
+
+export type ImageInput = v.InferInput<typeof ImageSchema>;
+export type ImageOutput = v.InferOutput<typeof ImageSchema>;
+```
+
+The schema and the input and output types can then be imported and used separately.
+
+```ts
+import * as v from 'valibot';
+import { ImageInput, ImageOutput, ImageSchema } from './types';
+
+export function createImage(input: ImageInput): ImageOutput {
+  return v.parse(ImageSchema, input);
+}
+```
+
+> Do you have ideas for improving these conventions? We welcome your feedback and suggestions. Feel free to create an [issue](https://github.com/open-circle/valibot/issues/new) on GitHub.
+
+### Async validation
+
+By default, Valibot validates each schema synchronously. This is usually the fastest way to validate unknown data, but sometimes you need to validate something asynchronously. For example, you might want to check if a username already exists in your database.
+
+#### How it works
+
+To be able to do this, Valibot provides an asynchronous implementation when necessary. The only difference is that the asynchronous implementation is promise-based. Otherwise, the API and functionality is exactly the same.
+
+##### Naming
+
+The asynchronous implementation starts with the same name as the synchronous one, but adds the suffix `Async` to the end. For example, the asynchronous implementation of <Link href="/api/pipe/">`pipe`</Link> is called <Link href="/api/pipeAsync/">`pipeAsync`</Link> and the asynchronous implementation of <Link href="/api/object/">`object`</Link> is called <Link href="/api/objectAsync/">`objectAsync`</Link>.
+
+##### Nesting
+
+Asynchronous functions can only be nested inside other asynchronous functions. This means that if you need to validate a string within an object asynchronously, you must also switch the object validation to the asynchronous implementation.
+
+This is not necessary in the other direction. You can nest synchronous functions within asynchronous functions, and we recommend that you do so in most cases to keep complexity and bundle size to a minimum.
+
+###### Rule of thumb
+
+We recommend that you always start with the synchronous implementation, and only move the necessary parts to the asynchronous implementation as needed. If you are using TypeScript, it is not possible to make a mistake here, as our API is completely type-safe and will notify you when you embed an asynchronous function into a synchronous function.
+
+##### Example
+
+Let's say you want to validate a profile object and the username should be checked asynchronously against your database. Only the object and username validation needs to be asynchronous, the rest can stay synchronous.
+
+```ts
+import * as v from 'valibot';
+import { isUsernameAvailable } from '~/api';
+
+const ProfileSchema = v.objectAsync({
+  username: v.pipeAsync(v.string(), v.checkAsync(isUsernameAvailable)),
+  avatar: v.pipe(v.string(), v.url()),
+  description: v.pipe(v.string(), v.maxLength(1000)),
+});
+```
+
+### JSON Schema
+
+In favor of a larger feature set and smaller bundle size, Valibot is not implemented with JSON Schema in mind. However, in some use cases, you may still need a JSON Schema. This guide will show you how to convert Valibot schemas to JSON Schema format.
+
+#### Valibot to JSON Schema
+
+A large part of Valibot's schemas are JSON Schema compatible and can be easily converted to the JSON Schema format using the official `toJsonSchema` function. This function is provided via a separate package called [`@valibot/to-json-schema`](https://github.com/open-circle/valibot/tree/main/packages/to-json-schema).
+
+> See the [README](https://github.com/open-circle/valibot/blob/main/packages/to-json-schema/README.md) of the `@valibot/to-json-schema` package for more details. It is also recommended that you take a look at <Link href="/blog/json-schema-package-upgrade/">this blog post</Link>, which highlights recent improvements.
+
+```ts
+import { toJsonSchema } from '@valibot/to-json-schema';
+import * as v from 'valibot';
+
+const ValibotEmailSchema = v.pipe(v.string(), v.email());
+const JsonEmailSchema = toJsonSchema(ValibotEmailSchema);
+// -> { type: 'string', format: 'email' }
+```
+
+#### Cons of JSON Schema
+
+Valibot schemas intentionally do not output JSON Schema natively. This is because JSON Schema is limited to JSON-compliant data structures. In addition, more advanced features like transformations are not supported. Since we want to leverage the full power of TypeScript, we output a custom format instead.
+
+Another drawback of JSON Schema is that JSON Schema itself does not contain any validation logic. Therefore, an additional function is required that can validate the entire JSON Schema specification. This approach is usually not tree-shakable and results in a large bundle size.
+
+In contrast, Valibot's API design and implementation is completely modular. Every schema is independent and contains its own validation logic. This allows the schemas to be plugged together like LEGO bricks, resulting in a much smaller bundle size due to tree shaking.
+
+#### Pros of JSON Schema
+
+Despite these drawbacks, JSON Schema is still widely used in the industry because it also has many advantages. For example, JSON Schemas can be used across programming languages and tools. In addition, JSON Schemas are serializable and can be easily stored in a database or transmitted over a network.
+
+### Internationalization
+
+Providing error messages in the native language of your users can improve the user experience and adoption rate of your software. That is why we offer several flexible ways to easily implement i18n.
+
+#### Official translations
+
+The fastest way to get started with i18n is to use Valibot's official translations. They are provided in a separate package called [`@valibot/i18n`](https://github.com/open-circle/valibot/tree/main/packages/i18n).
+
+> If you are missing a translation, feel free to open an [issue](https://github.com/open-circle/valibot/issues/new) or pull request on GitHub.
+
+##### Import translations
+
+Each translation in this package is implemented modularly and exported as a submodule. This allows you to import only the translations you actually need to keep your bundle size small.
+
+{/* prettier-ignore */}
+```ts
+// Import every translation (not recommended)
+import '@valibot/i18n';
+
+// Import every translation for a specific language
+import '@valibot/i18n/de';
+
+// Import only the translation for schema functions
+import '@valibot/i18n/de/schema';
+
+// Import only the translation for a specific pipeline function
+import '@valibot/i18n/de/minLength';
+```
+
+The submodules use sideeffects to load the translations into a global storage that the schema and validation functions access when adding the error message to an issue.
+
+##### Select language
+
+The language used is then selected by the `lang` configuration. You can set it globally with <Link href="/api/setGlobalConfig/">`setGlobalConfig`</Link> or locally when parsing unknown data via <Link href="/api/parse/">`parse`</Link> or <Link href="/api/safeParse/">`safeParse`</Link>.
+
+```ts
+import * as v from 'valibot';
+
+// Set the language configuration globally
+v.setGlobalConfig({ lang: 'de' });
+
+// Set the language configuration locally
+v.parse(Schema, input, { lang: 'de' });
+```
+
+#### Custom translations
+
+You can use the same APIs as [`@valibot/i18n`](https://github.com/open-circle/valibot/tree/main/packages/i18n) to add your own translations to the global storage. Alternatively, you can also pass them directly to a specific schema or validation function as the first optional argument.
+
+> You can either enter the translations manually or use an i18n library like [Paraglide JS](https://inlang.com/m/gerre34r/library-inlang-paraglideJs).
+
+##### Set translations globally
+
+You can add translations with <Link href="/api/setGlobalMessage/">`setGlobalMessage`</Link>, <Link href="/api/setSchemaMessage/">`setSchemaMessage`</Link> and <Link href="/api/setSpecificMessage/">`setSpecificMessage`</Link> in three different hierarchy levels. When creating an issue, I first check if a specific translation is available, then the translation for schema functions, and finally the global translation.
+
+```ts
+import * as v from 'valibot';
+
+// Set the translation globally (can be used as a fallback)
+v.setGlobalMessage((issue) => `Invalid input: ...`, 'en');
+
+// Set the translation globally for every schema functions
+v.setSchemaMessage((issue) => `Invalid type: ...`, 'en');
+
+// Set the translation globally for a specific function
+v.setSpecificMessage(v.minLength, (issue) => `Invalid length: ...`, 'en');
+```
+
+##### Set translations locally
+
+If you prefer to define the translations individually, you can pass them as the first optional argument to schema and validation functions. We recommend using an i18n library like [Paraglide JS](https://inlang.com/m/gerre34r/library-inlang-paraglideJs) in this case.
+
+{/* prettier-ignore */}
+```ts
+import * as v from 'valibot';
+import * as m from './paraglide/messages.js';
+
+const LoginSchema = v.object({
+  email: v.pipe(
+    v.string(),
+    v.nonEmpty(m.emailRequired),
+    v.email(m.emailInvalid)
+  ),
+  password: v.pipe(
+    v.string(),
+    v.nonEmpty(m.passwordRequired),
+    v.minLength(8, m.passwordInvalid)
+  ),
+});
+```
+
+## Migration
+
+### Migrate to v0.31.0
+
+Migrating Valibot from an older version to v0.31.0 isn't complicated. Except for the new <Link href="/api/pipe/">`pipe`</Link> method, most things remain the same. The following guide will help you to migrate automatically or manually step by step and also point out important differences.
+
+#### Automatic upgrade
+
+We worked together with [Codemod](https://codemod.com/registry/valibot-migrate-to-v0-31-0) and [Grit](https://docs.grit.io/registry/github.com/open-circle/valibot/migrate_to_v0_31_0) to automatically upgrade your schemas to the new version with a single CLI command. Both codemods are similar. You can use one or the other. Simply run the command in the directory of your project.
+
+> We recommend using a version control system like [Git](https://git-scm.com/) so that you can revert changes if the codemod screws something up.
+
+```bash
+### Codemod
+npx codemod valibot/migrate-to-v0.31.0
+
+### Grit
+npx @getgrit/cli apply github.com/open-circle/valibot#migrate_to_v0_31_0
+```
+
+Please create an [issue](https://github.com/open-circle/valibot/issues/new) if you encounter any problems or unexpected behavior with the provided codemods.
+
+#### Restructure code
+
+As mentioned above, one of the biggest differences is the new <Link href="/api/pipe/">`pipe`</Link> method. Previously, you passed the pipeline as an array to a schema function. Now you pass the schema with various actions to the new <Link href="/api/pipe/">`pipe`</Link> method to extend a schema.
+
+```ts
+// Change this
+const Schema = v.string([v.email()]);
+
+// To this
+const Schema = v.pipe(v.string(), v.email());
+```
+
+We will be publishing a [blog post](/blog/valibot-v0.31.0-is-finally-available/) soon explaining all the benefits of this change. In the meantime, you can read the description of discussion [#463](https://github.com/open-circle/valibot/discussions/463) and PR [#502](https://github.com/open-circle/valibot/pull/502), which introduced this change.
+
+#### Change names
+
+Most of the names are the same as before. However, there are some exceptions. The following table shows all names that have changed.
+
+| v0.30.0          | v0.31.0                                                                                                                                |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `anyAsync`       | <Link href="/api/any/">`any`</Link>                                                                                                    |
+| `BaseSchema`     | <Link href="/api/GenericSchema/">`GenericSchema`</Link>                                                                                |
+| `bigintAsync`    | <Link href="/api/bigint/">`bigint`</Link>                                                                                              |
+| `blobAsync`      | <Link href="/api/blob/">`blob`</Link>                                                                                                  |
+| `booleanAsync`   | <Link href="/api/boolean/">`boolean`</Link>                                                                                            |
+| `custom`         | <Link href="/api/check/">`check`</Link>                                                                                                |
+| `customAsync`    | <Link href="/api/checkAsync/">`checkAsync`</Link>                                                                                      |
+| `coerce`         | <Link href="/api/pipe/">`pipe`</Link>, <Link href="/api/unknown/">`unknown`</Link> and <Link href="/api/transform/">`transform`</Link> |
+| `dateAsync`      | <Link href="/api/date/">`date`</Link>                                                                                                  |
+| `enumAsync`      | <Link href="/api/enum/">`enum_`</Link>                                                                                                 |
+| `Input`          | <Link href="/api/InferInput/">`InferInput`</Link>                                                                                      |
+| `instanceAsync`  | <Link href="/api/instance/">`instance`</Link>                                                                                          |
+| `literalAsync`   | <Link href="/api/literal/">`literal`</Link>                                                                                            |
+| `nanAsync`       | <Link href="/api/nan/">`nan`</Link>                                                                                                    |
+| `neverAsync`     | <Link href="/api/never/">`never`</Link>                                                                                                |
+| `nullAsync`      | <Link href="/api/null/">`null_`</Link>                                                                                                 |
+| `numberAsync`    | <Link href="/api/number/">`number`</Link>                                                                                              |
+| `Output`         | <Link href="/api/InferOutput/">`InferOutput`</Link>                                                                                    |
+| `picklistAsync`  | <Link href="/api/picklist/">`picklist`</Link>                                                                                          |
+| `SchemaConfig`   | <Link href="/api/Config/">`Config`</Link>                                                                                              |
+| `special`        | <Link href="/api/custom/">`custom`</Link>                                                                                              |
+| `specialAsync`   | <Link href="/api/customAsync/">`customAsync`</Link>                                                                                    |
+| `SchemaConfig`   | <Link href="/api/string/">`Config`</Link>                                                                                              |
+| `stringAsync`    | <Link href="/api/string/">`string`</Link>                                                                                              |
+| `symbolAsync`    | <Link href="/api/symbol/">`symbol`</Link>                                                                                              |
+| `undefinedAsync` | <Link href="/api/undefined/">`undefined_`</Link>                                                                                       |
+| `unknownAsync`   | <Link href="/api/unknown/">`unknown`</Link>                                                                                            |
+| `toCustom`       | <Link href="/api/transform/">`transform`</Link>                                                                                        |
+| `toTrimmed`      | <Link href="/api/trim/">`trim`</Link>                                                                                                  |
+| `toTrimmedEnd`   | <Link href="/api/trimEnd/">`trimEnd`</Link>                                                                                            |
+| `toTrimmedStart` | <Link href="/api/trimStart/">`trimStart`</Link>                                                                                        |
+| `voidAsync`      | <Link href="/api/void/">`void_`</Link>                                                                                                 |
+
+#### Special cases
+
+More complex schemas may require a bit more restructuring. This section provides more details on how to migrate specific functions.
+
+##### Objects and tuples
+
+Previously, you could pass a `rest` argument to the <Link href="/api/object/">`object`</Link> and <Link href="/api/tuple/">`tuple`</Link> schemas to define the behavior for unknown entries and items. We have removed the `rest` argument to simplify the implementation and reduce the bundle size if this functionality is not needed. If you do need this functionality, there is now a new <Link href="/api/objectWithRest/">`objectWithRest`</Link> and <Link href="/api/tupleWithRest/">`tupleWithRest`</Link> schema.
+
+```ts
+// Change this
+const ObjectSchema = v.object({ key: v.string() }, v.null_());
+const TupleSchema = v.tuple([v.string()], v.null_());
+
+// To this
+const ObjectSchema = v.objectWithRest({ key: v.string() }, v.null_());
+const TupleSchema = v.tupleWithRest([v.string()], v.null_());
+```
+
+To further improve the developer experience, we have also added a <Link href="/api/looseObject/">`looseObject`</Link>, <Link href="/api/looseTuple/">`looseTuple`</Link>, <Link href="/api/strictObject/">`strictObject`</Link> and <Link href="/api/strictTuple/">`strictTuple`</Link> schema. These schemas allow or disallow unknown entries or items.
+
+```ts
+// Change this
+const LooseObjectSchema = v.object({ key: v.string() }, v.unknown());
+const LooseTupleSchema = v.tuple([v.string()], v.unknown());
+const StrictObjectSchema = v.object({ key: v.string() }, v.never());
+const StrictTupleSchema = v.tuple([v.string()], v.never());
+
+// To this
+const LooseObjectSchema = v.looseObject({ key: v.string() });
+const LooseTupleSchema = v.looseTuple([v.string()]);
+const StrictObjectSchema = v.strictObject({ key: v.string() });
+const StrictTupleSchema = v.strictTuple([v.string()]);
+```
+
+##### Object merging
+
+Since there are now 4 different object schemas, we could no longer provide a simple `merge` function that works in all cases, as we never know which schema you want to merge the other objects into. But there is a simple workaround with a similar developer experience.
+
+```ts
+const ObjectSchema1 = v.object({ foo: v.string() });
+const ObjectSchema2 = v.object({ bar: v.number() });
+
+// Change this
+const MergedObject = v.merge([ObjectSchema1, ObjectSchema2]);
+
+// To this
+const MergedObject = v.object({
+  ...ObjectSchema1.entries,
+  ...ObjectSchema2.entries,
+});
+```
+
+##### Brand and transform
+
+Previously, <Link href="/api/brand/">`brand`</Link> and <Link href="/api/transform/">`transform`</Link> were methods that could be wrapped around a schema to modify it. With our new <Link href="/api/pipe/">`pipe`</Link> method, this is no longer necessary. Instead, <Link href="/api/brand/">`brand`</Link> and <Link href="/api/transform/">`transform`</Link> are now transformation actions that can be placed directly in a pipeline, resulting in better readability, especially for complex schemas.
+
+```ts
+// Change this
+const BrandedSchema = v.brand(v.string(), 'foo');
+const TransformedSchema = v.transform(v.string(), (input) => input.length);
+
+// To this
+const BrandedSchema = v.pipe(v.string(), v.brand('foo'));
+const TransformedSchema = v.pipe(
+  v.string(),
+  v.transform((input) => input.length)
+);
+```
+
+##### Coerce method
+
+The `coerce` method has been removed because we felt it was an insecure API. In most cases, you don't want to coerce an unknown input into a specific data type. Instead, you want to transform a specific data type into another specific data type. For example, a string or a number into a date. To explicitly define the input type, we recommend using the new <Link href="/api/pipe/">`pipe`</Link> method together with the <Link href="/api/transform/">`transform`</Link> action to achieve the same functionality.
+
+```ts
+// Change this
+const DateSchema = v.coerce(v.date(), (input) => new Date(input));
+
+// To this
+const DateSchema = v.pipe(
+  v.union([v.string(), v.number()]),
+  v.transform((input) => new Date(input))
+);
+```
+
+##### Flatten issues
+
+Previously, the <Link href="/api/flatten/">`flatten`</Link> function accepted a <Link href="/api/ValiError/">`ValiError`</Link> or an array of issues. We have simplified the implementation by only allowing an array of issues to be passed.
+
+```ts
+// Change this
+const flatErrors = v.flatten(error);
+
+// To this
+const flatErrors = v.flatten(error.issues);
+```
+
+### Migrate from Zod
+
+Migrating from [Zod](https://zod.dev/) to Valibot is very easy in most cases since both APIs have a lot of similarities. The following guide will help you migrate step by step and also point out important differences.
+
+#### Official codemod
+
+To make the migration as smoth as possible, we have created an official codemod that automatically migrates your Zod schemas to Valibot. Just copy your schemas into this editor and click play.
+
+> The codemod is still in beta and may not cover all edge cases. If you encounter any problems or unexpected behaviour, please create an [issue](https://github.com/open-circle/valibot/issues/new). Alternatively, you can try to fix any issues yourself and create a [pull request](https://github.com/open-circle/valibot/pulls). You can find the source code [here](https://github.com/open-circle/valibot/tree/main/codemod/zod-to-valibot).
+
+<CodemodEditor />
+
+You can also run the codemod locally to migrate your entire codebase at once:
+
+```bash
+// Preview changes (no writes)
+npx @valibot/zod-to-valibot src/**/* --dry
+
+// Apply changes
+npx @valibot/zod-to-valibot src/**/*
+```
+
+#### Replace imports
+
+The first thing to do after <Link href="../installation/">installing</Link> Valibot is to update your imports. Just change your Zod imports to Valibot's and replace all occurrences of `z.` with `v.`.
+
+```ts
+// Change this
+import { z } from 'zod';
+const Schema = z.object({ key: z.string() });
+
+// To this
+import * as v from 'valibot';
+const Schema = v.object({ key: v.string() });
+```
+
+#### Restructure code
+
+One of the biggest differences between Zod and Valibot is the way you further validate a given type. In Zod, you chain methods like `.email` and `.endsWith`. In Valibot you use <Link href="../pipelines/">pipelines</Link> to do the same thing. This is a function that starts with a schema and is followed by up to 19 validation or transformation actions.
+
+```ts
+// Change this
+const Schema = z.string().email().endsWith('@example.com');
+
+// To this
+const Schema = v.pipe(v.string(), v.email(), v.endsWith('@example.com'));
+```
+
+Due to the modular design of Valibot, also all other methods like `.parse` or `.safeParse` have to be used a little bit differently. Instead of chaining them, you usually pass the schema as the first argument and move any existing arguments one position to the right.
+
+```ts
+// Change this
+const value = z.string().parse('foo');
+
+// To this
+const value = v.parse(v.string(), 'foo');
+```
+
+We recommend that you read our <Link href="../mental-model/">mental model</Link> guide to understand how the individual functions of Valibot's modular API work together.
+
+#### Change names
+
+Most of the names are the same as in Zod. However, there are some exceptions. The following table shows all names that have changed.
+
+| Zod                  | Valibot                                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `and`                | <Link href="/api/intersect/">`intersect`</Link>                                                                                             |
+| `catch`              | <Link href="/api/fallback/">`fallback`</Link>                                                                                               |
+| `catchall`           | <Link href="/api/objectWithRest/">`objectWithRest`</Link>                                                                                   |
+| `coerce`             | <Link href="/api/pipe/">`pipe`</Link>, <Link href="/api/unknown/">`unknown`</Link> and <Link href="/api/transform/">`transform`</Link>      |
+| `datetime`           | <Link href="/api/isoDate/">`isoDate`</Link>, <Link href="/api/isoDateTime/">`isoDateTime`</Link>                                            |
+| `default`            | <Link href="/api/optional/">`optional`</Link>                                                                                               |
+| `discriminatedUnion` | <Link href="/api/variant/">`variant`</Link>                                                                                                 |
+| `element`            | `item`                                                                                                                                      |
+| `enum`               | <Link href="/api/picklist/">`picklist`</Link>                                                                                               |
+| `extend`             | <Link href="../intersections/#merge-objects">Object merging</Link>                                                                          |
+| `gt`                 | <Link href="/api/gtValue/">`gtValue`</Link>                                                                                                 |
+| `gte`                | <Link href="/api/minValue/">`minValue`</Link>                                                                                               |
+| `infer`              | <Link href="/api/InferOutput/">`InferOutput`</Link>                                                                                         |
+| `int`                | <Link href="/api/integer/">`integer`</Link>                                                                                                 |
+| `input`              | <Link href="/api/InferInput/">`InferInput`</Link>                                                                                           |
+| `instanceof`         | <Link href="/api/instance/">`instance`</Link>                                                                                               |
+| `intersection`       | <Link href="/api/intersect/">`intersect`</Link>                                                                                             |
+| `lt`                 | <Link href="/api/ltValue/">`ltValue`</Link>                                                                                                 |
+| `lte`                | <Link href="/api/maxValue/">`maxValue`</Link>                                                                                               |
+| `max`                | <Link href="/api/maxLength/">`maxLength`</Link>, <Link href="/api/maxSize/">`maxSize`</Link>, <Link href="/api/maxValue/">`maxValue`</Link> |
+| `min`                | <Link href="/api/minLength/">`minLength`</Link>, <Link href="/api/minSize/">`minSize`</Link>, <Link href="/api/minValue/">`minValue`</Link> |
+| `nativeEnum`         | <Link href="/api/enum/">`enum`</Link>                                                                                                       |
+| `negative`           | <Link href="/api/maxValue/">`maxValue`</Link>                                                                                               |
+| `nonnegative`        | <Link href="/api/minValue/">`minValue`</Link>                                                                                               |
+| `nonpositive`        | <Link href="/api/maxValue/">`maxValue`</Link>                                                                                               |
+| `or`                 | <Link href="/api/union/">`union`</Link>                                                                                                     |
+| `output`             | <Link href="/api/InferOutput/">`InferOutput`</Link>                                                                                         |
+| `passthrough`        | <Link href="/api/looseObject/">`looseObject`</Link>                                                                                         |
+| `positive`           | <Link href="/api/minValue/">`minValue`</Link>                                                                                               |
+| `refine`             | <Link href="/api/check/">`check`</Link>, <Link href="/api/forward/">`forward`</Link>                                                        |
+| `rest`               | <Link href="/api/tuple/">`tuple`</Link>                                                                                                     |
+| `safe`               | <Link href="/api/safeInteger/">`safeInteger`</Link>                                                                                         |
+| `shape`              | `entries`                                                                                                                                   |
+| `strict`             | <Link href="/api/strictObject/">`strictObject`</Link>                                                                                       |
+| `strip`              | <Link href="/api/object/">`object`</Link>                                                                                                   |
+| `superRefine`        | <Link href="/api/rawCheck/">`rawCheck`</Link>, <Link href="/api/rawTransform/">`rawTransform`</Link>                                        |
+
+#### Other details
+
+Below are some more details that may be helpful when migrating from Zod to Valibot.
+
+##### Object and tuple
+
+To specify whether objects or tuples should allow or prevent unknown values, Valibot uses different schema functions. Zod uses the methods `.passthrough`, `.strict`, `.strip`, `.catchall` and `.rest` instead. See the <Link href="../objects/">objects</Link> and <Link href="../arrays/">arrays</Link> guide for more details.
+
+```ts
+// Change this
+const ObjectSchema = z.object({ key: z.string() }).strict();
+
+// To this
+const ObjectSchema = v.strictObject({ key: v.string() });
+```
+
+##### Error messages
+
+For individual error messages, you can pass a string or an object to Zod. It also allows you to differentiate between an error message for "required" and "invalid_type". With Valibot you just pass a single string instead.
+
+```ts
+// Change this
+const StringSchema = z
+  .string({ invalid_type_error: 'Not a string' })
+  .min(5, { message: 'Too short' });
+
+// To this
+const StringSchema = v.pipe(
+  v.string('Not a string'),
+  v.minLength(5, 'Too short')
+);
+```
+
+##### Coerce type
+
+To enforce primitive values, you can use a method of the `coerce` object in Zod. There is no such object or function in Valibot. Instead, you use a pipeline with a <Link href="/api/transform/">`transform`</Link> action as the second argument. This forces you to explicitly define the input, resulting in safer code.
+
+```ts
+// Change this
+const NumberSchema = z.coerce.number();
+
+// To this
+const NumberSchema = v.pipe(v.unknown(), v.transform(Number));
+```
+
+Instead of <Link href="/api/unknown/">`unknown`</Link> as in the previous example, we usually recommend using a specific schema such as <Link href="/api/string/">`string`</Link> to improve type safety. This allows you, for example, to validate the formatting of the string with <Link href="/api/decimal/">`decimal`</Link> before transforming it to a number.
+
+```ts
+const NumberSchema = v.pipe(v.string(), v.decimal(), v.transform(Number));
+```
+
+##### Async validation
+
+Similar to Zod, Valibot supports synchronous and asynchronous validation. However, the API is a little bit different. See the <Link href="../async-validation/">async guide</Link> for more details.
