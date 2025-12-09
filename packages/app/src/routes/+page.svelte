@@ -4,7 +4,7 @@
   import DownloadSimple from 'phosphor-svelte/lib/DownloadSimple';
   import FilmReel from 'phosphor-svelte/lib/FilmReel';
   import UserPlus from 'phosphor-svelte/lib/UserPlus';
-  import { getBroadcasts } from './api/broadcasts/get.remote';
+  import { getBroadcasts } from './api/broadcasts.remote';
 
   const query = getBroadcasts();
 </script>
