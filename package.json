@@ -5,10 +5,10 @@
 	"description": "Self-hosted Twitch VOD manager",
 	"main": "index.js",
 	"scripts": {
-    "check": "biome check --write",
-    "format": "biome format --write",
-    "lint": "biome lint --write",
-    "prepare": "husky",
+		"check": "biome check --write",
+		"format": "biome format --write",
+		"lint": "biome lint --write",
+		"prepare": "husky",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"keywords": [],
@@ -18,11 +18,11 @@
 	"engines": {
 		"node": ">=18"
 	},
-  "lint-staged": {
-    "*.{svelte,js,ts,json,yaml}": [
-      "biome check --write"
-    ]
-  },
+	"lint-staged": {
+		"*.{svelte,js,ts,json,yaml}": [
+			"biome check --write --error-on-warnings"
+		]
+	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.7",
 		"husky": "^9.1.7",
