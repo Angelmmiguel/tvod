@@ -8,6 +8,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
+		"postinstall": "cd ./node_modules/better-sqlite3 && pnpm rebuild",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test:unit": "vitest",
@@ -25,6 +26,7 @@
 		"@types/better-sqlite3": "^7.6.13",
 		"@types/node": "^22",
 		"@vitest/browser-playwright": "^4.0.10",
+		"bits-ui": "^2.14.4",
 		"drizzle-kit": "^0.31.7",
 		"drizzle-orm": "^0.44.7",
 		"phosphor-svelte": "^3.0.1",
@@ -38,7 +40,6 @@
 		"vitest-browser-svelte": "^2.0.1"
 	},
 	"dependencies": {
-		"better-sqlite3": "^12.4.1",
-		"bits-ui": "^2.14.4"
+		"better-sqlite3": "^12.4.1"
 	}
 }
