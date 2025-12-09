@@ -1,2 +1,38 @@
-<h1>Welcome to SvelteKit</h1>
-<p>Visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to read the documentation</p>
+<script lang="ts">
+import { Button } from 'bits-ui';
+import DownloadSimple from 'phosphor-svelte/lib/DownloadSimple';
+import FilmReel from 'phosphor-svelte/lib/FilmReel';
+import UserPlus from 'phosphor-svelte/lib/UserPlus';
+</script>
+
+<div class="flex flex-1 flex-col items-center justify-center p-8">
+	<div class="flex flex-col items-center gap-6 text-center">
+		<div class="flex size-20 items-center justify-center rounded-full bg-zinc-800">
+			<FilmReel class="size-10 text-zinc-500"/>
+		</div>
+
+		<div class="space-y-2">
+			<h2 class="text-xl font-semibold text-white">No recordings yet</h2>
+			<p class="max-w-md text-sm text-zinc-400">
+				Download VODs from your favorite Twitch channels or follow channels to automatically save
+				their streams.
+			</p>
+		</div>
+
+		<div class="flex gap-3">
+			<Button.Root
+				class="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-purple-700 active:scale-[0.98]"
+			>
+				<DownloadSimple class="size-4"/>
+				Download a video
+			</Button.Root>
+
+			<Button.Root
+				class="inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 active:scale-[0.98]"
+			>
+				<UserPlus class="size-4"/>
+				Follow a channel
+			</Button.Root>
+		</div>
+	</div>
+</div>
