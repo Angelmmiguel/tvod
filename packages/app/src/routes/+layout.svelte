@@ -9,8 +9,8 @@ const { children } = $props();
 
 const navItems = [
 	{ label: 'Recordings', href: '/', icon: VideoCamera },
-	{ label: 'Channels', href: '/channels', icon: Broadcast },
-	{ label: 'Configuration', href: '/configuration', icon: Gear },
+	// { label: 'Channels', href: '/channels', icon: Broadcast },
+	// { label: 'Configuration', href: '/configuration', icon: Gear },
 ];
 </script>
 
